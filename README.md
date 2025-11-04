@@ -1,6 +1,6 @@
 # Project StockNet
 
-One Paragraph of project description goes here
+Stock Backend App.
 
 ## Getting Started
 
