@@ -505,7 +505,6 @@ Use this checklist to verify your setup is complete:
 - [ ] Tests pass (`go test ./...`)
 - [ ] API server starts and health check works
 - [ ] Read [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
-- [ ] Read [GCP_DEPLOYMENT.md](GCP_DEPLOYMENT.md)
 
 
 
