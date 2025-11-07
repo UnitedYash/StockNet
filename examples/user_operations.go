@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== StockNet User Operations Example ===\n")
+	fmt.Println("=== StockNet User Operations Example ===")
 
 	// Initialize database connection
 	dbService := database.New()
@@ -25,7 +25,7 @@ func main() {
 	if err := createUsersTable(db); err != nil {
 		log.Fatalf("Failed to create users table: %v", err)
 	}
-	fmt.Println("✓ Users table created successfully\n")
+	fmt.Println("✓ Users table created successfully")
 
 	// Initialize user repository
 	userRepo := repository.NewUserRepository(db)
@@ -66,7 +66,7 @@ func main() {
 		fmt.Printf("ID: %d | Username: %-15s | Email: %-25s | Name: %s\n",
 			user.ID, user.Username, user.Email, user.FullName)
 	}
-	fmt.Println("---------------------------------------------------\n")
+	fmt.Println("---------------------------------------------------")
 
 	// Get user by ID
 	if len(allUsers) > 0 {
