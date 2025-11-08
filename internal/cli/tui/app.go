@@ -12,6 +12,7 @@ const (
 	MainMenuState AppState = iota
 	LoginState
 	RegisterState
+	ConfigureState
 )
 
 // AppModel is the root model for the entire app
@@ -20,15 +21,17 @@ type AppModel struct {
 	mainMenu     *MainMenuModel
 	login        *LoginModel
 	register     *RegisterModel
+	configure    *ConfigureModel
 }
 
 // NewAppModel creates a new app model
 func NewAppModel() *AppModel {
 	return &AppModel{
-		state:    MainMenuState,
-		mainMenu: NewMainMenu(),
-		login:    NewLogin(),
-		register: NewRegister(),
+		state:     MainMenuState,
+		mainMenu:  NewMainMenu(),
+		login:     NewLogin(),
+		register:  NewRegister(),
+		configure: NewConfigure(),
 	}
 }
 
@@ -62,6 +65,9 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "Register":
 					m.state = RegisterState
 					m.register = NewRegister()
+				case "Configure":
+					m.state = ConfigureState
+					m.configure = NewConfigure()
 				case "Quit":
 					return m, tea.Quit
 				}
@@ -86,6 +92,15 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = MainMenuState
 		}
 		return m, cmd
+
+	case ConfigureState:
+		configure, cmd := m.configure.Update(msg)
+		m.configure = configure.(*ConfigureModel)
+		if m.configure.backPressed {
+			m.configure.backPressed = false
+			m.state = MainMenuState
+		}
+		return m, cmd
 	}
 
 	return m, nil
@@ -99,6 +114,8 @@ func (m *AppModel) View() string {
 		return m.login.View()
 	case RegisterState:
 		return m.register.View()
+	case ConfigureState:
+		return m.configure.View()
 	}
 	return ""
 }

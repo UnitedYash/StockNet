@@ -17,6 +17,7 @@ func NewMainMenu() *MainMenuModel {
 		options: []string{
 			"Login",
 			"Register",
+			"Configure",
 			"Quit",
 		},
 		selected: 0,
