@@ -9,10 +9,10 @@ import (
 type AppState int
 
 const (
-	MainMenuState AppState = iota
-	LoginState
-	RegisterState
-	ConfigureState
+	MainMenuState AppState = iota 	// 0
+	LoginState						// 1
+	RegisterState					// 2
+	ConfigureState					// 3
 )
 
 // AppModel is the root model for the entire app
@@ -34,11 +34,12 @@ func NewAppModel() *AppModel {
 		configure: NewConfigure(),
 	}
 }
-
+// returns intial command for the application to run
 func (m *AppModel) Init() tea.Cmd {
+	// Note: For now, we don't have any initial I/O commands to do. nil = "no command"
 	return nil
 }
-
+// handles incoming events and updates root model and runs corresponding commands
 func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -50,10 +51,14 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Route to the appropriate state handler
 	switch m.state {
+	// give msg input to Update method of the currently active model
+	// and changes app model state if a button/option (that is meant for switching views) gets triggered
+
 	case MainMenuState:
 		menu, cmd := m.mainMenu.Update(msg)
 		m.mainMenu = menu.(*MainMenuModel)
 
+		// get the selected option and switch to that model if enter key pressed (confirmed)
 		if m.mainMenu.selected >= 0 && m.mainMenu.selected < len(m.mainMenu.options) {
 			option := m.mainMenu.options[m.mainMenu.selected]
 			if m.mainMenu.confirmed {
@@ -78,6 +83,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case LoginState:
 		login, cmd := m.login.Update(msg)
 		m.login = login.(*LoginModel)
+		// Go back to login view from Login view 
 		if m.login.backPressed {
 			m.login.backPressed = false
 			m.state = MainMenuState
@@ -87,6 +93,8 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case RegisterState:
 		register, cmd := m.register.Update(msg)
 		m.register = register.(*RegisterModel)
+
+		// Go back to login view from Register view 
 		if m.register.backPressed {
 			m.register.backPressed = false
 			m.state = MainMenuState
@@ -96,6 +104,8 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ConfigureState:
 		configure, cmd := m.configure.Update(msg)
 		m.configure = configure.(*ConfigureModel)
+
+		// Go back to login view from Configure view 
 		if m.configure.backPressed {
 			m.configure.backPressed = false
 			m.state = MainMenuState
@@ -106,6 +116,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// Render the current model view
 func (m *AppModel) View() string {
 	switch m.state {
 	case MainMenuState:
