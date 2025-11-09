@@ -13,6 +13,7 @@ type RegisterModel struct {
 	password    string
 	confirmPwd  string
 	message     string
+	user        *auth.User
 }
 
 func NewRegister() *RegisterModel {
@@ -40,10 +41,11 @@ func (m *RegisterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.password != m.confirmPwd {
 					m.message = "✗ Passwords do not match!"
 				} else {
-					_, err := auth.Register(m.email, m.password, m.name)
+					user, err := auth.Register(m.email, m.password, m.name)
 					if err != nil {
 						m.message = "✗ " + err.Error()
 					} else {
+						m.user = user
 						m.message = "✓ Registration successful!"
 					}
 				}
@@ -103,4 +105,8 @@ func (m *RegisterModel) View() string {
 
 	s += FooterStyle.Render("Press Enter to continue • 'b' or 'Esc' to go back") + "\n\n"
 	return s
+}
+
+func (m *RegisterModel) GetUser() *auth.User {
+	return m.user
 }

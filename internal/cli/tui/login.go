@@ -11,6 +11,7 @@ type LoginModel struct {
 	email       string
 	password    string
 	message     string
+	user        *auth.User
 }
 
 func NewLogin() *LoginModel {
@@ -31,10 +32,11 @@ func (m *LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.step == 0 && m.email != "" {
 				m.step = 1
 			} else if m.step == 1 && m.password != "" {
-				_, err := auth.Login(m.email, m.password)
+				user, err := auth.Login(m.email, m.password)
 				if err != nil {
 					m.message = "✗ " + err.Error()
 				} else {
+					m.user = user
 					m.message = "✓ Login successful!"
 				}
 			}
@@ -84,4 +86,8 @@ func hidePassword(password string) string {
 		result += "•"
 	}
 	return result
+}
+
+func (m *LoginModel) GetUser() *auth.User {
+	return m.user
 }

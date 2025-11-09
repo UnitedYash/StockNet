@@ -2,6 +2,7 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"StockNet/internal/auth"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -13,15 +14,18 @@ const (
 	LoginState						// 1
 	RegisterState					// 2
 	ConfigureState					// 3
+	HomePageState					// 4
 )
 
 // AppModel is the root model for the entire app
 type AppModel struct {
 	state        AppState
+	currentUser auth.User // currently logged-in user
 	mainMenu     *MainMenuModel
 	login        *LoginModel
 	register     *RegisterModel
 	configure    *ConfigureModel
+	homepage     *HomePageModel
 }
 
 // NewAppModel creates a new app model
@@ -32,6 +36,7 @@ func NewAppModel() *AppModel {
 		login:     NewLogin(),
 		register:  NewRegister(),
 		configure: NewConfigure(),
+		homepage:  NewHomePage(),
 	}
 }
 // returns intial command for the application to run
@@ -83,7 +88,14 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case LoginState:
 		login, cmd := m.login.Update(msg)
 		m.login = login.(*LoginModel)
-		// Go back to login view from Login view 
+		// Check if user successfully logged in
+		if m.login.GetUser() != nil {
+			m.currentUser = *m.login.GetUser()
+			m.state = HomePageState
+			m.homepage = NewHomePage() // reset homepage
+			m.login = NewLogin() // reset login form
+		}
+		// Go back to login view from Login view
 		if m.login.backPressed {
 			m.login.backPressed = false
 			m.state = MainMenuState
@@ -93,8 +105,14 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case RegisterState:
 		register, cmd := m.register.Update(msg)
 		m.register = register.(*RegisterModel)
-
-		// Go back to login view from Register view 
+		// Check if user successfully registered
+		if m.register.GetUser() != nil {
+			m.currentUser = *m.register.GetUser()
+			m.state = HomePageState
+			m.homepage = NewHomePage() // reset homepage
+			m.register = NewRegister() // reset register form
+		}
+		// Go back to login view from Register view
 		if m.register.backPressed {
 			m.register.backPressed = false
 			m.state = MainMenuState
@@ -105,10 +123,21 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		configure, cmd := m.configure.Update(msg)
 		m.configure = configure.(*ConfigureModel)
 
-		// Go back to login view from Configure view 
+		// Go back to login view from Configure view
 		if m.configure.backPressed {
 			m.configure.backPressed = false
 			m.state = MainMenuState
+		}
+		return m, cmd
+
+	case HomePageState:
+		homepage, cmd := m.homepage.Update(msg)
+		m.homepage = homepage.(*HomePageModel)
+		// Go back to main menu (logout) from HomePage
+		if m.homepage.backPressed {
+			m.homepage.backPressed = false
+			m.state = MainMenuState
+			m.currentUser = auth.User{} // clear current user
 		}
 		return m, cmd
 	}
@@ -127,6 +156,8 @@ func (m *AppModel) View() string {
 		return m.register.View()
 	case ConfigureState:
 		return m.configure.View()
+	case HomePageState:
+		return m.homepage.View()
 	}
 	return ""
 }
