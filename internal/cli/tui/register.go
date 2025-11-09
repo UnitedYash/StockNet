@@ -2,11 +2,13 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"StockNet/internal/auth"
 )
 
 type RegisterModel struct {
 	backPressed bool
-	step        int // 0: email, 1: password, 2: confirm password
+	step        int // 0: name, 1: email, 2: password, 3: confirm password
+	name        string
 	email       string
 	password    string
 	confirmPwd  string
@@ -28,19 +30,32 @@ func (m *RegisterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "enter":
-			if m.step == 0 && m.email != "" {
+			if m.step == 0 && m.name != "" {
 				m.step = 1
-			} else if m.step == 1 && m.password != "" {
+			} else if m.step == 1 && m.email != "" {
 				m.step = 2
-			} else if m.step == 2 && m.confirmPwd != "" {
-				m.message = "✓ Registration successful!"
+			} else if m.step == 2 && m.password != "" {
+				m.step = 3
+			} else if m.step == 3 && m.confirmPwd != "" {
+				if m.password != m.confirmPwd {
+					m.message = "✗ Passwords do not match!"
+				} else {
+					_, err := auth.Register(m.email, m.password, m.name)
+					if err != nil {
+						m.message = "✗ " + err.Error()
+					} else {
+						m.message = "✓ Registration successful!"
+					}
+				}
 			}
 		case "backspace":
-			if m.step == 0 && len(m.email) > 0 {
+			if m.step == 0 && len(m.name) > 0 {
+				m.name = m.name[:len(m.name)-1]
+			} else if m.step == 1 && len(m.email) > 0 {
 				m.email = m.email[:len(m.email)-1]
-			} else if m.step == 1 && len(m.password) > 0 {
+			} else if m.step == 2 && len(m.password) > 0 {
 				m.password = m.password[:len(m.password)-1]
-			} else if m.step == 2 && len(m.confirmPwd) > 0 {
+			} else if m.step == 3 && len(m.confirmPwd) > 0 {
 				m.confirmPwd = m.confirmPwd[:len(m.confirmPwd)-1]
 			}
 		case "b", "esc":
@@ -48,10 +63,12 @@ func (m *RegisterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			if len(msg.String()) == 1 {
 				if m.step == 0 {
-					m.email += msg.String()
+					m.name += msg.String()
 				} else if m.step == 1 {
-					m.password += msg.String()
+					m.email += msg.String()
 				} else if m.step == 2 {
+					m.password += msg.String()
+				} else if m.step == 3 {
 					m.confirmPwd += msg.String()
 				}
 			}
@@ -65,11 +82,16 @@ func (m *RegisterModel) View() string {
 	s += TitleStyle.Render("📝 Register") + "\n\n"
 
 	if m.step == 0 {
-		s += InputStyle.Render("Enter email: "+m.email) + "\n"
+		s += InputStyle.Render("Enter name: "+m.name) + "\n"
 	} else if m.step == 1 {
+		s += InputStyle.Render("Name: "+m.name) + "\n"
+		s += InputStyle.Render("Enter email: "+m.email) + "\n"
+	} else if m.step == 2 {
+		s += InputStyle.Render("Name: "+m.name) + "\n"
 		s += InputStyle.Render("Email: "+m.email) + "\n"
 		s += InputStyle.Render("Enter password: "+hidePassword(m.password)) + "\n"
 	} else {
+		s += InputStyle.Render("Name: "+m.name) + "\n"
 		s += InputStyle.Render("Email: "+m.email) + "\n"
 		s += InputStyle.Render("Password: "+hidePassword(m.password)) + "\n"
 		s += InputStyle.Render("Confirm password: "+hidePassword(m.confirmPwd)) + "\n"

@@ -2,6 +2,7 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"StockNet/internal/auth"
 )
 
 type LoginModel struct {
@@ -30,7 +31,12 @@ func (m *LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.step == 0 && m.email != "" {
 				m.step = 1
 			} else if m.step == 1 && m.password != "" {
-				m.message = "✓ Login successful!"
+				_, err := auth.Login(m.email, m.password)
+				if err != nil {
+					m.message = "✗ " + err.Error()
+				} else {
+					m.message = "✓ Login successful!"
+				}
 			}
 		case "backspace":
 			if m.step == 0 && len(m.email) > 0 {
