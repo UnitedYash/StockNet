@@ -15,28 +15,41 @@ const (
 	RegisterState					// 2
 	ConfigureState					// 3
 	HomePageState					// 4
+	PortfolioState					// 5
+	StockListState					// 6
+	StockAnalysisState				// 7
+	SocialState						// 8
 )
 
 // AppModel is the root model for the entire app
 type AppModel struct {
-	state        AppState
-	currentUser auth.User // currently logged-in user
-	mainMenu     *MainMenuModel
-	login        *LoginModel
-	register     *RegisterModel
-	configure    *ConfigureModel
-	homepage     *HomePageModel
+	state        	AppState
+	currentUser 	auth.User // currently logged-in user
+	mainMenu    	*MainMenuModel
+	login       	*LoginModel
+	register    	*RegisterModel
+	configure   	*ConfigureModel
+	homepage    	*HomePageModel
+	portfolio		*PortfolioModel
+	stockList		*StockListModel
+	stockAnalysis 	*StockAnalysisModel
+	social			*SocialModel
+	
 }
 
 // NewAppModel creates a new app model
 func NewAppModel() *AppModel {
 	return &AppModel{
-		state:     MainMenuState,
-		mainMenu:  NewMainMenu(),
-		login:     NewLogin(),
-		register:  NewRegister(),
-		configure: NewConfigure(),
-		homepage:  NewHomePage(nil),
+		state:     		MainMenuState,
+		mainMenu:  		NewMainMenu(),
+		login:     		NewLogin(),
+		register:  		NewRegister(),
+		configure: 		NewConfigure(),
+		homepage:  		NewHomePage(nil),
+		portfolio: 		newPortfolioPage(),
+		stockList: 		newStockListPage(),	
+		stockAnalysis: 	newStockAnalysisPage(),
+		social:			newSocialPage(),
 	}
 }
 // returns intial command for the application to run
@@ -133,11 +146,70 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case HomePageState:
 		homepage, cmd := m.homepage.Update(msg)
 		m.homepage = homepage.(*HomePageModel)
+
+		// get the selected option and switch to that model if enter key pressed (confirmed)
+		if m.homepage.selected >= 0 && m.homepage.selected < len(m.homepage.options) {
+			option := m.homepage.options[m.homepage.selected]
+			if m.homepage.confirmed {
+				m.homepage.confirmed = false
+				switch option {
+				case "My Portfolios":
+					m.state = PortfolioState
+					m.portfolio = newPortfolioPage()
+				case "My Stock Lists":
+					m.state = StockListState
+					m.stockList = newStockListPage()
+				case "Stock Data & Analysis":
+					m.state = StockAnalysisState
+					m.stockAnalysis = newStockAnalysisPage()
+				case "Friends & Social":
+					m.state = SocialState
+					m.social = newSocialPage()
+				}
+			}
+		}
+
 		// Go back to main menu (logout) from HomePage
 		if m.homepage.backPressed {
 			m.homepage.backPressed = false
 			m.state = MainMenuState
 			m.currentUser = auth.User{} // clear current user
+		}
+		return m, cmd
+	case PortfolioState:
+		portfolio, cmd := m.portfolio.Update(msg)
+		m.portfolio = portfolio.(*PortfolioModel)
+		// Go back to homepage from portfolio page
+		if m.portfolio.backPressed {
+			m.portfolio.backPressed = false
+			m.state = HomePageState
+		}
+		return m, cmd
+	case StockListState:
+		stockList, cmd := m.stockList.Update(msg)
+		m.stockList = stockList.(*StockListModel)
+		// Go back to homepage from stock list page
+		if m.stockList.backPressed {
+			m.stockList.backPressed = false
+			m.state = HomePageState
+		}
+		return m, cmd
+	case StockAnalysisState:
+		stockAnalysis, cmd := m.stockAnalysis.Update(msg)
+		m.stockAnalysis = stockAnalysis.(*StockAnalysisModel)
+		// Go back to homepage from Stock Data & Analysis page
+		if m.stockAnalysis.backPressed {
+			m.stockAnalysis.backPressed = false
+			m.state = HomePageState
+		}
+		return m, cmd
+	case SocialState:
+		social, cmd := m.social.Update(msg)
+		m.social = social.(*SocialModel)
+		// Go back to homepage from social page
+		if m.social.backPressed {
+			m.social.backPressed = false
+			m.state = HomePageState
 		}
 		return m, cmd
 	}
@@ -158,6 +230,14 @@ func (m *AppModel) View() string {
 		return m.configure.View()
 	case HomePageState:
 		return m.homepage.View()
+	case PortfolioState:
+		return m.portfolio.View()
+	case StockListState:
+		return m.stockList.View()
+	case StockAnalysisState:
+		return m.stockAnalysis.View()
+	case SocialState:
+		return m.social.View()
 	}
 	return ""
 }
