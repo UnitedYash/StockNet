@@ -49,7 +49,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		// Global quit key
-		if msg.String() == "q" || msg.String() == "ctrl+c" {
+		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
 	}
@@ -95,7 +95,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.homepage = NewHomePage() // reset homepage
 			m.login = NewLogin() // reset login form
 		}
-		// Go back to login view from Login view
+		// Go back to main view from Login view
 		if m.login.backPressed {
 			m.login.backPressed = false
 			m.state = MainMenuState

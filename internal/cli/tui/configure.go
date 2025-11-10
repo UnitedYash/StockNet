@@ -42,7 +42,7 @@ func (m *ConfigureModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.vmIP) > 0 {
 				m.vmIP = m.vmIP[:len(m.vmIP)-1]
 			}
-		case "b", "esc":
+		case "ctrl+b", "esc":
 			m.backPressed = true
 		default:
 			if len(msg.String()) == 1 {
@@ -67,6 +67,6 @@ func (m *ConfigureModel) View() string {
 		}
 	}
 
-	s += FooterStyle.Render("Press Enter to save • 'b' or 'Esc' to go back") + "\n\n"
+	s += FooterStyle.Render("Press Enter to save • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }

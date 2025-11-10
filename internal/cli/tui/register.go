@@ -60,7 +60,7 @@ func (m *RegisterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.step == 3 && len(m.confirmPwd) > 0 {
 				m.confirmPwd = m.confirmPwd[:len(m.confirmPwd)-1]
 			}
-		case "b", "esc":
+		case "ctrl+b", "esc":
 			m.backPressed = true
 		default:
 			if len(msg.String()) == 1 {
@@ -103,7 +103,7 @@ func (m *RegisterModel) View() string {
 		s += SuccessStyle.Render(m.message) + "\n"
 	}
 
-	s += FooterStyle.Render("Press Enter to continue • 'b' or 'Esc' to go back") + "\n\n"
+	s += FooterStyle.Render("Press Enter to continue • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
 

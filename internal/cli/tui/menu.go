@@ -66,7 +66,7 @@ func (m *MainMenuModel) View() string {
 		}
 	}
 	// The footer
-	s += FooterStyle.Render("↑/↓ or k/j to navigate • Enter to select • q to quit") + "\n\n"
+	s += FooterStyle.Render("↑/↓ or k/j to navigate • Enter to select • Ctrl + c to quit") + "\n\n"
 	
 	return s
 }

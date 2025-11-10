@@ -20,7 +20,7 @@ func (m *HomePageModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "q", "esc":
+		case "ctrl+l", "esc":
 			m.backPressed = true
 		}
 	}
@@ -31,6 +31,6 @@ func (m *HomePageModel) View() string {
 	s := "\n"
 	s += TitleStyle.Render("📊 Home") + "\n\n"
 	s += InputStyle.Render("Welcome to StockNet!") + "\n\n"
-	s += FooterStyle.Render("Press 'q' or 'Esc' to logout") + "\n\n"
+	s += FooterStyle.Render("Press 'Ctrl + l' or 'Esc' to logout") + "\n\n"
 	return s
 }

@@ -46,7 +46,7 @@ func (m *LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.step == 1 && len(m.password) > 0 {
 				m.password = m.password[:len(m.password)-1]
 			}
-		case "b", "esc":
+		case "ctrl+b", "esc":
 			m.backPressed = true
 		default:
 			if len(msg.String()) == 1 {
@@ -76,7 +76,7 @@ func (m *LoginModel) View() string {
 		s += SuccessStyle.Render(m.message) + "\n"
 	}
 
-	s += FooterStyle.Render("Press Enter to continue • 'b' or 'Esc' to go back") + "\n\n"
+	s += FooterStyle.Render("Press Enter to continue • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
 
