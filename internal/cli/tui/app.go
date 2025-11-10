@@ -36,7 +36,7 @@ func NewAppModel() *AppModel {
 		login:     NewLogin(),
 		register:  NewRegister(),
 		configure: NewConfigure(),
-		homepage:  NewHomePage(),
+		homepage:  NewHomePage(nil),
 	}
 }
 // returns intial command for the application to run
@@ -92,7 +92,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.login.GetUser() != nil {
 			m.currentUser = *m.login.GetUser()
 			m.state = HomePageState
-			m.homepage = NewHomePage() // reset homepage
+			m.homepage = NewHomePage(m.login.GetUser()) // reset homepage
 			m.login = NewLogin() // reset login form
 		}
 		// Go back to main view from Login view
@@ -109,7 +109,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.register.GetUser() != nil {
 			m.currentUser = *m.register.GetUser()
 			m.state = HomePageState
-			m.homepage = NewHomePage() // reset homepage
+			m.homepage = NewHomePage(m.register.GetUser()) // reset homepage
 			m.register = NewRegister() // reset register form
 		}
 		// Go back to main view from register view
