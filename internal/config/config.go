@@ -8,9 +8,10 @@ import (
 )
 
 type Config struct {
+	// stores a VM's IP address as a string
 	VMIP string `json:"vm_ip"`
 }
-
+// return the path to the config file 
 func getConfigPath() string {
 	usr, err := user.Current()
 	if err != nil {
@@ -30,7 +31,7 @@ func LoadConfig() (*Config, error) {
 		}
 		return nil, err
 	}
-
+	// parse JSON and fill config struct with values
 	var config Config
 	if err := json.Unmarshal(data, &config); err != nil {
 		return nil, err

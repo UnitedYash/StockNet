@@ -15,7 +15,7 @@ type User struct {
 
 // Login function to authenticate user's credentials
 func Login(email string, password string) (*User, error) {
-	//first we connect to the database
+	// first we connect to the database
 	dbService := database.New()
 	db := dbService.GetDB()
 	
@@ -46,6 +46,7 @@ func Register(email string, password string, name string) (*User, error) {
 		return nil, fmt.Errorf("registration failed: email already registered")
 	}
 
+	// now insert the newly registered user
 	insertQuery := "INSERT INTO accounts (email, password, name) VALUES ($1, $2, $3) RETURNING user_id"
 	var newUserID uint32
 	err = db.QueryRow(insertQuery, email, password, name).Scan(&newUserID)
@@ -53,6 +54,7 @@ func Register(email string, password string, name string) (*User, error) {
 		return nil, fmt.Errorf("registration failed: %v", err)
 	}
 
+	// create instance of a user
 	newUser := &User{
 		UserID: newUserID,
 		Email:   email,
