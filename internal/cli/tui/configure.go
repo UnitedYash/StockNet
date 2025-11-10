@@ -5,14 +5,14 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 )
-
+// MOdel for configure page
 type ConfigureModel struct {
 	backPressed bool
 	vmIP        string
 	message     string
 	saved       bool
 }
-
+// returns Configure initial modei
 func NewConfigure() *ConfigureModel {
 	// Load existing VM IP if available
 	ip, _ := config.GetVMIP()
@@ -20,16 +20,17 @@ func NewConfigure() *ConfigureModel {
 		vmIP: ip,
 	}
 }
-
+// returns initial command for the configure page (No commands yet)
 func (m *ConfigureModel) Init() tea.Cmd {
 	return nil
 }
-
+// Handles incoming events and updates model accordingly
 func (m *ConfigureModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "enter":
+			// saving VM IP
 			if m.vmIP != "" {
 				if err := config.SetVMIP(m.vmIP); err != nil {
 					m.message = "✗ Error saving config"
@@ -39,20 +40,28 @@ func (m *ConfigureModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "backspace":
+			// removing last char from text field
 			if len(m.vmIP) > 0 {
 				m.vmIP = m.vmIP[:len(m.vmIP)-1]
 			}
 		case "ctrl+b", "esc":
 			m.backPressed = true
 		default:
+			// any other key implies user typing in text field
+			// also block any non-printable letters
+
 			if len(msg.String()) == 1 {
-				m.vmIP += msg.String()
+				r := rune(msg.String()[0])
+				if r >=32 && r != 127 {
+					m.vmIP += msg.String()
+				}
+
 			}
 		}
 	}
 	return m, nil
 }
-
+// renders UI based on the current version of the configure model
 func (m *ConfigureModel) View() string {
 	s := "\n"
 	s += TitleStyle.Render("⚙️  Configure VM IP") + "\n\n"

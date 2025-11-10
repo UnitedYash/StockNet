@@ -4,7 +4,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"StockNet/internal/auth"
 )
-
+// Model for register view
 type RegisterModel struct {
 	backPressed bool
 	step        int // 0: name, 1: email, 2: password, 3: confirm password
@@ -16,21 +16,24 @@ type RegisterModel struct {
 	user        *auth.User
 }
 
+// returns intital register model 
 func NewRegister() *RegisterModel {
 	return &RegisterModel{
 		step: 0,
 	}
 }
-
+// returns initial command for the register page to run (nothing)
 func (m *RegisterModel) Init() tea.Cmd {
 	return nil
 }
 
+// Handles incoming events and updates the model accordingly
 func (m *RegisterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "enter":
+			// move to the next text field or register the user
 			if m.step == 0 && m.name != "" {
 				m.step = 1
 			} else if m.step == 1 && m.email != "" {
@@ -51,6 +54,7 @@ func (m *RegisterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "backspace":
+			// remove last character typed in current text field
 			if m.step == 0 && len(m.name) > 0 {
 				m.name = m.name[:len(m.name)-1]
 			} else if m.step == 1 && len(m.email) > 0 {
@@ -63,22 +67,27 @@ func (m *RegisterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+b", "esc":
 			m.backPressed = true
 		default:
+			// any other key would indicate user typing in text field
+			// also block any non-printable letters
 			if len(msg.String()) == 1 {
-				if m.step == 0 {
-					m.name += msg.String()
-				} else if m.step == 1 {
-					m.email += msg.String()
-				} else if m.step == 2 {
-					m.password += msg.String()
-				} else if m.step == 3 {
-					m.confirmPwd += msg.String()
+				r := rune(msg.String()[0])
+				if r >= 32 && r != 127 { // valid ASCII except for DEL
+					if m.step == 0 {
+						m.name += msg.String()
+					} else if m.step == 1 {
+						m.email += msg.String()
+					} else if m.step == 2 {
+						m.password += msg.String()
+					} else if m.step == 3 {
+						m.confirmPwd += msg.String()
+					}
 				}
 			}
 		}
 	}
 	return m, nil
 }
-
+// renders UI based on current register model
 func (m *RegisterModel) View() string {
 	s := "\n"
 	s += TitleStyle.Render("📝 Register") + "\n\n"
@@ -106,7 +115,7 @@ func (m *RegisterModel) View() string {
 	s += FooterStyle.Render("Press Enter to continue • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
-
+// returns registered (logged in) user 
 func (m *RegisterModel) GetUser() *auth.User {
 	return m.user
 }

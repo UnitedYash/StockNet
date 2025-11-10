@@ -5,13 +5,13 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 )
-// Model for application main page
+// Model for main page view
 type MainMenuModel struct {
 	options   []string
 	selected  int
 	confirmed bool
 }
-// returns application initial model
+// returns main page initial model
 func NewMainMenu() *MainMenuModel {
 	return &MainMenuModel{
 		options: []string{
@@ -23,7 +23,7 @@ func NewMainMenu() *MainMenuModel {
 		selected: 0,
 	}
 }
-// returns intial command for the application to run
+// returns intial command for the menu page to run
 func (m *MainMenuModel) Init() tea.Cmd {
 	// Note: For now, we don't have any initial I/O commands to do. nil = "no command"
 	return nil

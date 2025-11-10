@@ -112,7 +112,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.homepage = NewHomePage() // reset homepage
 			m.register = NewRegister() // reset register form
 		}
-		// Go back to login view from Register view
+		// Go back to main view from register view
 		if m.register.backPressed {
 			m.register.backPressed = false
 			m.state = MainMenuState
@@ -123,7 +123,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		configure, cmd := m.configure.Update(msg)
 		m.configure = configure.(*ConfigureModel)
 
-		// Go back to login view from Configure view
+		// Go back to home view from configure view
 		if m.configure.backPressed {
 			m.configure.backPressed = false
 			m.state = MainMenuState

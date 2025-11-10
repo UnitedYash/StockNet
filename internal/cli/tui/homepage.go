@@ -3,19 +3,19 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 )
-
+// Model for the home page
 type HomePageModel struct {
 	backPressed bool
 }
-
+// returns initial home page model
 func NewHomePage() *HomePageModel {
 	return &HomePageModel{}
 }
-
+// returns initial command 
 func (m *HomePageModel) Init() tea.Cmd {
 	return nil
 }
-
+// Handles incoming events and updates the model accordingly
 func (m *HomePageModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -26,7 +26,7 @@ func (m *HomePageModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	return m, nil
 }
-
+// renders UI based on current version of homepage view model
 func (m *HomePageModel) View() string {
 	s := "\n"
 	s += TitleStyle.Render("📊 Home") + "\n\n"
