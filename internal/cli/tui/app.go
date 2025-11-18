@@ -34,7 +34,7 @@ type AppModel struct {
 	stockList		*StockListModel
 	stockAnalysis 	*StockAnalysisModel
 	social			*SocialModel
-	
+
 }
 
 // NewAppModel creates a new app model
@@ -47,7 +47,7 @@ func NewAppModel() *AppModel {
 		configure: 		NewConfigure(),
 		homepage:  		NewHomePage(nil),
 		portfolio: 		newPortfolioPage(),
-		stockList: 		newStockListPage(),	
+		stockList: 		newStockListPage(),
 		stockAnalysis: 	newStockAnalysisPage(),
 		social:			newSocialPage(),
 	}
