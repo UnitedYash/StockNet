@@ -54,7 +54,7 @@ func (m *LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.backPressed = true
 		default:
 			// any other key would indicate user typing in the text field
-			// also block any non-printable letters 
+			// also block any non-printable letters
 			if len(msg.String()) == 1 {
 				r := rune(msg.String()[0])
 				if r >= 32 && r != 127 {

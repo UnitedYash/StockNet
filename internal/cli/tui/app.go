@@ -19,6 +19,9 @@ const (
 	StockListState					// 6
 	StockAnalysisState				// 7
 	SocialState						// 8
+	CurrentStocksState				// 9
+	SearchStockState				// 10
+	StockDetailsState				// 11
 )
 
 // AppModel is the root model for the entire app
@@ -34,6 +37,9 @@ type AppModel struct {
 	stockList		*StockListModel
 	stockAnalysis 	*StockAnalysisModel
 	social			*SocialModel
+	currentStocks	*CurrentStocksModel
+	searchStock		*SearchStockModel
+	stockDetails	*StockDetailsModel
 
 }
 
@@ -50,6 +56,9 @@ func NewAppModel() *AppModel {
 		stockList: 		newStockListPage(),
 		stockAnalysis: 	newStockAnalysisPage(),
 		social:			newSocialPage(),
+		currentStocks:	newCurrentStocksPage(),
+		searchStock:	newSearchStockPage(),
+		stockDetails:	nil,
 	}
 }
 // returns intial command for the application to run
@@ -197,6 +206,25 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case StockAnalysisState:
 		stockAnalysis, cmd := m.stockAnalysis.Update(msg)
 		m.stockAnalysis = stockAnalysis.(*StockAnalysisModel)
+
+		// Handle menu option selection
+		if m.stockAnalysis.selected >= 0 && m.stockAnalysis.selected < len(m.stockAnalysis.options) {
+			option := m.stockAnalysis.options[m.stockAnalysis.selected]
+			if m.stockAnalysis.confirmed {
+				m.stockAnalysis.confirmed = false
+				switch option {
+				case "View Current Stocks":
+					m.state = CurrentStocksState
+					m.currentStocks = newCurrentStocksPage()
+					// Return Init command to fetch stocks data
+					cmd = m.currentStocks.Init()
+				case "Search Stock":
+					m.state = SearchStockState
+					m.searchStock = newSearchStockPage()
+				}
+			}
+		}
+
 		// Go back to homepage from Stock Data & Analysis page
 		if m.stockAnalysis.backPressed {
 			m.stockAnalysis.backPressed = false
@@ -210,6 +238,45 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.social.backPressed {
 			m.social.backPressed = false
 			m.state = HomePageState
+		}
+		return m, cmd
+	case CurrentStocksState:
+		currentStocks, cmd := m.currentStocks.Update(msg)
+		m.currentStocks = currentStocks.(*CurrentStocksModel)
+		// Go back to stock analysis page from current stocks page
+		if m.currentStocks.backPressed {
+			m.currentStocks.backPressed = false
+			m.state = StockAnalysisState
+			m.stockAnalysis = newStockAnalysisPage()
+		}
+		return m, cmd
+	case SearchStockState:
+		searchStock, cmd := m.searchStock.Update(msg)
+		m.searchStock = searchStock.(*SearchStockModel)
+		// Check if user confirmed search
+		if m.searchStock.confirmed {
+			m.searchStock.confirmed = false
+			symbol := m.searchStock.GetSymbol()
+			m.state = StockDetailsState
+			m.stockDetails = newStockDetailsPage(symbol)
+			// Return Init command to fetch historical data
+			cmd = m.stockDetails.Init()
+		}
+		// Go back to stock analysis page
+		if m.searchStock.backPressed {
+			m.searchStock.backPressed = false
+			m.state = StockAnalysisState
+			m.searchStock = newSearchStockPage()
+		}
+		return m, cmd
+	case StockDetailsState:
+		stockDetails, cmd := m.stockDetails.Update(msg)
+		m.stockDetails = stockDetails.(*StockDetailsModel)
+		// Go back to search stock page
+		if m.stockDetails.backPressed {
+			m.stockDetails.backPressed = false
+			m.state = SearchStockState
+			m.searchStock = newSearchStockPage()
 		}
 		return m, cmd
 	}
@@ -238,6 +305,12 @@ func (m *AppModel) View() string {
 		return m.stockAnalysis.View()
 	case SocialState:
 		return m.social.View()
+	case CurrentStocksState:
+		return m.currentStocks.View()
+	case SearchStockState:
+		return m.searchStock.View()
+	case StockDetailsState:
+		return m.stockDetails.View()
 	}
 	return ""
 }
