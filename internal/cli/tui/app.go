@@ -22,6 +22,7 @@ const (
 	CurrentStocksState				// 9
 	SearchStockState				// 10
 	StockDetailsState				// 11
+	SendFriReqState					// 12
 )
 
 // AppModel is the root model for the entire app
@@ -40,6 +41,7 @@ type AppModel struct {
 	currentStocks	*CurrentStocksModel
 	searchStock		*SearchStockModel
 	stockDetails	*StockDetailsModel
+	sendFriReq		*SendFriReqModel
 
 }
 
@@ -59,6 +61,8 @@ func NewAppModel() *AppModel {
 		currentStocks:	newCurrentStocksPage(),
 		searchStock:	newSearchStockPage(),
 		stockDetails:	nil,
+		sendFriReq:		newSendFriReqPage(nil),
+
 	}
 }
 // returns intial command for the application to run
@@ -234,12 +238,26 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SocialState:
 		social, cmd := m.social.Update(msg)
 		m.social = social.(*SocialModel)
+
+		// get the selected option and switch to that model if enter key pressed (confirmed)
+		if m.social.selected >= 0 && m.social.selected < len(m.social.options) {
+			option := m.social.options[m.social.selected]
+			if m.social.confirmed {
+				m.social.confirmed = false
+				switch option {
+				case "Send Friend Request":
+					m.state = SendFriReqState
+					m.sendFriReq = newSendFriReqPage(m.social.GetUser())
+				}
+			}
+		}
 		// Go back to homepage from social page
 		if m.social.backPressed {
 			m.social.backPressed = false
 			m.state = HomePageState
 		}
 		return m, cmd
+
 	case CurrentStocksState:
 		currentStocks, cmd := m.currentStocks.Update(msg)
 		m.currentStocks = currentStocks.(*CurrentStocksModel)
@@ -279,7 +297,18 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.searchStock = newSearchStockPage()
 		}
 		return m, cmd
+	case SendFriReqState:
+		sendFriReq, cmd := m.sendFriReq.Update(msg)
+		m.sendFriReq = sendFriReq.(*SendFriReqModel)
+		// Go back to friend and social from send friend request page
+		if m.sendFriReq.backPressed {
+			m.sendFriReq.backPressed = false
+			m.state = SocialState
+		}
+		return m, cmd
+
 	}
+	
 
 	return m, nil
 }
@@ -311,6 +340,8 @@ func (m *AppModel) View() string {
 		return m.searchStock.View()
 	case StockDetailsState:
 		return m.stockDetails.View()
+	case SendFriReqState:
+		return m.sendFriReq.View()
 	}
 	return ""
 }

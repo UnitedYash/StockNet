@@ -83,7 +83,7 @@ func (m *HomePageModel) View() string {
 	return s
 }
 
-// returns registered (logged in) user 
+// returns (logged in) user 
 func (m *HomePageModel) GetUser() *auth.User {
 	return m.user
 }

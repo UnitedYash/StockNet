@@ -79,6 +79,10 @@ func (m *SocialModel) View() string {
 	return s
 }
 
+// returns (logged in) user 
+func (m *SocialModel) GetUser() *auth.User {
+	return m.user
+}
 
 
 
