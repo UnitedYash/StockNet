@@ -23,45 +23,51 @@ const (
 	SearchStockState				// 10
 	StockDetailsState				// 11
 	SendFriReqState					// 12
+	ViewPortfoliosState				// 13
+	CreatePortfolioState			// 14
 )
 
 // AppModel is the root model for the entire app
 type AppModel struct {
-	state        	AppState
-	currentUser 	auth.User // currently logged-in user
-	mainMenu    	*MainMenuModel
-	login       	*LoginModel
-	register    	*RegisterModel
-	configure   	*ConfigureModel
-	homepage    	*HomePageModel
-	portfolio		*PortfolioModel
-	stockList		*StockListModel
-	stockAnalysis 	*StockAnalysisModel
-	social			*SocialModel
-	currentStocks	*CurrentStocksModel
-	searchStock		*SearchStockModel
-	stockDetails	*StockDetailsModel
-	sendFriReq		*SendFriReqModel
+	state        		AppState
+	currentUser 		auth.User // currently logged-in user
+	mainMenu    		*MainMenuModel
+	login       		*LoginModel
+	register    		*RegisterModel
+	configure   		*ConfigureModel
+	homepage    		*HomePageModel
+	portfolio			*PortfolioModel
+	viewPortfolios		*ViewPortfoliosModel
+	createPortfolio		*CreatePortfolioModel
+	stockList			*StockListModel
+	stockAnalysis 		*StockAnalysisModel
+	social				*SocialModel
+	currentStocks		*CurrentStocksModel
+	searchStock			*SearchStockModel
+	stockDetails		*StockDetailsModel
+	sendFriReq			*SendFriReqModel
 
 }
 
 // NewAppModel creates a new app model
 func NewAppModel() *AppModel {
 	return &AppModel{
-		state:     		MainMenuState,
-		mainMenu:  		NewMainMenu(),
-		login:     		NewLogin(),
-		register:  		NewRegister(),
-		configure: 		NewConfigure(),
-		homepage:  		NewHomePage(nil),
-		portfolio: 		newPortfolioPage(),
-		stockList: 		newStockListPage(),
-		stockAnalysis: 	newStockAnalysisPage(),
-		social:			newSocialPage(nil),
-		currentStocks:	newCurrentStocksPage(),
-		searchStock:	newSearchStockPage(),
-		stockDetails:	nil,
-		sendFriReq:		newSendFriReqPage(nil),
+		state:     			MainMenuState,
+		mainMenu:  			NewMainMenu(),
+		login:     			NewLogin(),
+		register:  			NewRegister(),
+		configure: 			NewConfigure(),
+		homepage:  			NewHomePage(nil),
+		portfolio: 			newPortfolioPage(),
+		viewPortfolios:		newViewPortfoliosPageWithUserID(0), // Will be set with actual user ID
+		createPortfolio:		newCreatePortfolioPageWithUserID(0), // Will be set with actual user ID
+		stockList: 			newStockListPage(),
+		stockAnalysis: 		newStockAnalysisPage(),
+		social:				newSocialPage(nil),
+		currentStocks:		newCurrentStocksPage(),
+		searchStock:		newSearchStockPage(),
+		stockDetails:		nil,
+		sendFriReq:			newSendFriReqPage(nil),
 
 	}
 }
@@ -192,10 +198,47 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case PortfolioState:
 		portfolio, cmd := m.portfolio.Update(msg)
 		m.portfolio = portfolio.(*PortfolioModel)
+
+		// Check if user pressed Enter to select an option
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "enter" {
+			option := m.portfolio.GetSelectedOption()
+			userID := int(m.currentUser.UserID)
+			if option == 0 {
+				// View Portfolios selected
+				m.state = ViewPortfoliosState
+				m.viewPortfolios = newViewPortfoliosPageWithUserID(userID)
+				cmd = m.viewPortfolios.Init()
+			} else if option == 1 {
+				// Create Portfolio selected
+				m.state = CreatePortfolioState
+				m.createPortfolio = newCreatePortfolioPageWithUserID(userID)
+			}
+		}
+
 		// Go back to homepage from portfolio page
 		if m.portfolio.backPressed {
 			m.portfolio.backPressed = false
 			m.state = HomePageState
+		}
+		return m, cmd
+	case ViewPortfoliosState:
+		viewPortfolios, cmd := m.viewPortfolios.Update(msg)
+		m.viewPortfolios = viewPortfolios.(*ViewPortfoliosModel)
+		// Go back to portfolio page from view portfolios page
+		if m.viewPortfolios.backPressed {
+			m.viewPortfolios.backPressed = false
+			m.state = PortfolioState
+			m.portfolio = newPortfolioPage()
+		}
+		return m, cmd
+	case CreatePortfolioState:
+		createPortfolio, cmd := m.createPortfolio.Update(msg)
+		m.createPortfolio = createPortfolio.(*CreatePortfolioModel)
+		// Go back to portfolio page from create portfolio page
+		if m.createPortfolio.backPressed {
+			m.createPortfolio.backPressed = false
+			m.state = PortfolioState
+			m.portfolio = newPortfolioPage()
 		}
 		return m, cmd
 	case StockListState:
@@ -328,6 +371,10 @@ func (m *AppModel) View() string {
 		return m.homepage.View()
 	case PortfolioState:
 		return m.portfolio.View()
+	case ViewPortfoliosState:
+		return m.viewPortfolios.View()
+	case CreatePortfolioState:
+		return m.createPortfolio.View()
 	case StockListState:
 		return m.stockList.View()
 	case StockAnalysisState:
