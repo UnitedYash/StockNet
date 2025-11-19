@@ -23,6 +23,9 @@ const (
 	SearchStockState				// 10
 	StockDetailsState				// 11
 	SendFriReqState					// 12
+	ViewFriReqState					// 13
+	IncFriReqState					// 14
+	OutFriReqState					// 15
 )
 
 // AppModel is the root model for the entire app
@@ -42,6 +45,9 @@ type AppModel struct {
 	searchStock		*SearchStockModel
 	stockDetails	*StockDetailsModel
 	sendFriReq		*SendFriReqModel
+	viewFriReq		*ViewFriReqModel
+	incFriReq		*IncFriReqModel
+	outFriReq 		*OutFriReqModel
 
 }
 
@@ -62,6 +68,9 @@ func NewAppModel() *AppModel {
 		searchStock:	newSearchStockPage(),
 		stockDetails:	nil,
 		sendFriReq:		newSendFriReqPage(nil),
+		viewFriReq:		newViewFriReqPage(nil),
+		incFriReq:		newIncFriReqPage(nil),
+		outFriReq:		newOutFriReqPage(nil),
 
 	}
 }
@@ -248,6 +257,9 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "Send Friend Request":
 					m.state = SendFriReqState
 					m.sendFriReq = newSendFriReqPage(m.social.GetUser())
+				case "View Friends Requests":
+					m.state = ViewFriReqState
+					m.viewFriReq = newViewFriReqPage(m.social.GetUser())
 				}
 			}
 		}
@@ -306,10 +318,49 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = SocialState
 		}
 		return m, cmd
-
+	case ViewFriReqState:
+		viewFriReq, cmd := m.viewFriReq.Update(msg)
+		m.viewFriReq = viewFriReq.(*ViewFriReqModel)
+		// Go back to friend and social from view friend request page
+		if m.viewFriReq.backPressed {
+			m.viewFriReq.backPressed = false
+			m.state = SocialState
+		}
+		// get the selected option and switch to that model if enter key pressed (confirmed)
+		if m.viewFriReq.selected >= 0 && m.viewFriReq.selected < len(m.viewFriReq.options) {
+			option := m.viewFriReq.options[m.viewFriReq.selected]
+			if m.viewFriReq.confirmed {
+				m.viewFriReq.confirmed = false
+				switch option {
+				case "Incoming Requests (Accept / Reject)":
+					m.state = IncFriReqState
+					m.incFriReq = newIncFriReqPage(m.viewFriReq.GetUser())
+				case "Outgoing Requests (Cancel)":
+					m.state = OutFriReqState
+					m.outFriReq = newOutFriReqPage(m.viewFriReq.GetUser())
+				}
+			}
+		}
+		return m, cmd
+	case IncFriReqState:
+		incFriReq, cmd := m.incFriReq.Update(msg)
+		m.incFriReq = incFriReq.(*IncFriReqModel)
+		// Go back to view friend request page from incoming view page
+		if m.incFriReq.backPressed {
+			m.incFriReq.backPressed = false
+			m.state = ViewFriReqState
+		}
+		return m, cmd
+	case OutFriReqState:
+		outFriReq, cmd := m.outFriReq.Update(msg)
+		m.outFriReq = outFriReq.(*OutFriReqModel)
+		// Go back to view friend request page from outgoing view page
+		if m.outFriReq.backPressed {
+			m.outFriReq.backPressed = false
+			m.state = ViewFriReqState
+		}
+		return m, cmd
 	}
-	
-
 	return m, nil
 }
 
@@ -342,6 +393,12 @@ func (m *AppModel) View() string {
 		return m.stockDetails.View()
 	case SendFriReqState:
 		return m.sendFriReq.View()
+	case ViewFriReqState:
+		return m.viewFriReq.View()
+	case IncFriReqState:
+		return m.incFriReq.View()
+	case OutFriReqState:
+		return m.outFriReq.View()
 	}
 	return ""
 }

@@ -103,7 +103,7 @@ func (m *SendFriReqModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						"INSERT INTO friendstatus(sender, receiver, status, last_modified) VALUES($1, $2, 'pending', NOW())",
 						m.user.Email, m.email,
 					)
-					
+
 					if err != nil {
 						m.message = "✗ Database error: " + err.Error()
 					} else {
@@ -140,7 +140,7 @@ func (m *SendFriReqModel) View() string {
 		s += SuccessStyle.Render(m.message) + "\n"
 	}
 
-	s += FooterStyle.Render("↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += FooterStyle.Render("'Ctrl + b' or 'Esc' to go back") + "\n\n"
 
 	
 	return s
