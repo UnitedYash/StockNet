@@ -55,7 +55,7 @@ func NewAppModel() *AppModel {
 		portfolio: 		newPortfolioPage(),
 		stockList: 		newStockListPage(),
 		stockAnalysis: 	newStockAnalysisPage(),
-		social:			newSocialPage(),
+		social:			newSocialPage(nil),
 		currentStocks:	newCurrentStocksPage(),
 		searchStock:	newSearchStockPage(),
 		stockDetails:	nil,
@@ -173,7 +173,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.stockAnalysis = newStockAnalysisPage()
 				case "Friends & Social":
 					m.state = SocialState
-					m.social = newSocialPage()
+					m.social = newSocialPage(m.homepage.GetUser())
 				}
 			}
 		}

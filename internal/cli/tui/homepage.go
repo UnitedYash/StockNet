@@ -82,3 +82,8 @@ func (m *HomePageModel) View() string {
 	s += FooterStyle.Render("↑/↓ or k/j to navigate • 'Ctrl + l' or 'Esc' to logout") + "\n\n"
 	return s
 }
+
+// returns registered (logged in) user 
+func (m *HomePageModel) GetUser() *auth.User {
+	return m.user
+}
