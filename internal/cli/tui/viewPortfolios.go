@@ -23,6 +23,10 @@ type ViewPortfoliosModel struct {
 	currentUserID int
 }
 
+type portfolioSelectedMsg struct {
+	Portfolio Portfolio
+}
+
 type portfoliosLoadedMsg struct {
 	portfolios []Portfolio
 }
@@ -96,6 +100,13 @@ func (m *ViewPortfoliosModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "down", "j":
 			if m.selected < len(m.portfolios)-1 {
 				m.selected++
+			}
+		case "enter":
+			if (len(m.portfolios) > 0) {
+				selectedPortfolio := m.portfolios[m.selected]
+				return m, func() tea.Msg {
+					return portfolioSelectedMsg{Portfolio: selectedPortfolio}
+				}
 			}
 		case "ctrl+b", "esc":
 			m.backPressed = true

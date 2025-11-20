@@ -28,6 +28,9 @@ const (
 	OutFriReqState					// 15
 	ViewPortfoliosState				// 16
 	CreatePortfolioState			// 17
+	ViewSpecPortfolioState			// 18
+	BuyStockSearchState				// 19
+	BuyStockState					// 20
 )
 
 // AppModel is the root model for the entire app
@@ -52,7 +55,9 @@ type AppModel struct {
 	viewFriReq			*ViewFriReqModel
 	incFriReq			*IncFriReqModel
 	outFriReq 			*OutFriReqModel
-
+	viewSpecPortfolio	*viewSpecPortfolioModel
+	buyStockSearch		*BuyStockSearchModel
+	buyStock			*BuyStockModel
 }
 
 // NewAppModel creates a new app model
@@ -77,7 +82,9 @@ func NewAppModel() *AppModel {
 		viewFriReq:			newViewFriReqPage(nil),
 		incFriReq:			newIncFriReqPage(nil),
 		outFriReq:			newOutFriReqPage(nil),
-
+		viewSpecPortfolio:	nil,
+		buyStockSearch:		nil,
+		buyStock:			nil,
 	}
 }
 // returns intial command for the application to run
@@ -233,11 +240,53 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ViewPortfoliosState:
 		viewPortfolios, cmd := m.viewPortfolios.Update(msg)
 		m.viewPortfolios = viewPortfolios.(*ViewPortfoliosModel)
+
+		// Check if a portfolio was selected
+		if portfolioMsg, ok := msg.(portfolioSelectedMsg); ok {
+			// View Specific Portfolio selected
+			m.state = ViewSpecPortfolioState
+			m.viewSpecPortfolio = newViewSpecPortfolioPageWithUserID(int(m.currentUser.UserID), portfolioMsg.Portfolio.PortfolioID)
+			// Pass the message to the new model to populate it
+			return m, func() tea.Msg {
+				return portfolioMsg
+			}
+		}
+
 		// Go back to portfolio page from view portfolios page
 		if m.viewPortfolios.backPressed {
 			m.viewPortfolios.backPressed = false
 			m.state = PortfolioState
 			m.portfolio = newPortfolioPage()
+		}
+		return m, cmd
+
+	case ViewSpecPortfolioState:
+		viewSpecPortfolio, cmd := m.viewSpecPortfolio.Update(msg)
+		m.viewSpecPortfolio = viewSpecPortfolio.(*viewSpecPortfolioModel)
+
+		// Handle option selection from specific portfolio view
+		if m.viewSpecPortfolio.optionSelected != "" {
+			option := m.viewSpecPortfolio.optionSelected
+			m.viewSpecPortfolio.optionSelected = "" // Reset
+
+			switch option {
+			case "Buy Stock":
+				m.state = BuyStockSearchState
+				userID := int(m.currentUser.UserID)
+				portfolioID := m.viewSpecPortfolio.portfolioID
+				cashAccount := m.viewSpecPortfolio.portfolio.CashAccount
+				m.buyStockSearch = newBuyStockSearchPageWithPortfolio(userID, portfolioID, cashAccount)
+				cmd = m.buyStockSearch.Init()
+			}
+		}
+
+		// Go back to view portfolios page from specific portfolio view page
+		if m.viewSpecPortfolio.backPressed {
+			m.viewSpecPortfolio.backPressed = false
+			m.state = ViewPortfoliosState
+			userID := int(m.currentUser.UserID)
+			m.viewPortfolios = newViewPortfoliosPageWithUserID(userID)
+			cmd = m.viewPortfolios.Init()
 		}
 		return m, cmd
 	case CreatePortfolioState:
@@ -406,6 +455,43 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = ViewFriReqState
 		}
 		return m, cmd
+	case BuyStockSearchState:
+		buyStockSearch, cmd := m.buyStockSearch.Update(msg)
+		m.buyStockSearch = buyStockSearch.(*BuyStockSearchModel)
+
+		// Check if a stock was selected
+		if stockMsg, ok := msg.(stockSelectedForBuyMsg); ok {
+			m.state = BuyStockState
+			userID := int(m.currentUser.UserID)
+			portfolioID := m.buyStockSearch.portfolioID
+			cashAccount := m.buyStockSearch.cashAccount
+			m.buyStock = newBuyStockPageWithStock(userID, portfolioID, stockMsg.Stock, cashAccount)
+		}
+
+		// Go back to specific portfolio view from buy stock search
+		if m.buyStockSearch.backPressed {
+			m.buyStockSearch.backPressed = false
+			m.state = ViewSpecPortfolioState
+		}
+		return m, cmd
+	case BuyStockState:
+		buyStock, cmd := m.buyStock.Update(msg)
+		m.buyStock = buyStock.(*BuyStockModel)
+
+		// Handle confirmed purchase
+		if m.buyStock.confirmed {
+			// TODO: Execute the buy transaction
+			// For now, just go back to the portfolio view
+			m.buyStock.confirmed = false
+			m.state = ViewSpecPortfolioState
+		}
+
+		// Go back to stock search from buy stock page
+		if m.buyStock.backPressed {
+			m.buyStock.backPressed = false
+			m.state = BuyStockSearchState
+		}
+		return m, cmd
 	}
 	return m, nil
 }
@@ -449,6 +535,12 @@ func (m *AppModel) View() string {
 		return m.incFriReq.View()
 	case OutFriReqState:
 		return m.outFriReq.View()
+	case ViewSpecPortfolioState:
+		return m.viewSpecPortfolio.View()
+	case BuyStockSearchState:
+		return m.buyStockSearch.View()
+	case BuyStockState:
+		return m.buyStock.View()
 	}
 	return ""
 }
