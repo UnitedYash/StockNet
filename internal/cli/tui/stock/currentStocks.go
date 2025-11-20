@@ -1,8 +1,9 @@
-package tui
+package stock
 
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"StockNet/internal/cli/tui/styles"
 	"StockNet/internal/database"
 )
 
@@ -14,11 +15,11 @@ type Stock struct {
 }
 
 type CurrentStocksModel struct {
-    backPressed bool
-    stocks      []Stock
-    selected    int
-    loading     bool
-    scrollOffset int  // Track which stock to start displaying from
+    BackPressed bool
+    Stocks      []Stock
+    Selected    int
+    Loading     bool
+    ScrollOffset int  // Track which stock to start displaying from
 }
 
 type stocksLoadedMsg struct {
@@ -29,11 +30,11 @@ type stocksLoadError struct {
 	err error
 }
 
-func newCurrentStocksPage() *CurrentStocksModel {
+func NewCurrentStocksPage() *CurrentStocksModel {
 	return &CurrentStocksModel{
-		stocks:   []Stock{},
-		selected: 0,
-		loading:  true,
+		Stocks:   []Stock{},
+		Selected: 0,
+		Loading:  true,
 	}
 }
 
@@ -66,26 +67,26 @@ func (m *CurrentStocksModel) Init() tea.Cmd {
 func (m *CurrentStocksModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case stocksLoadedMsg:
-		m.stocks = msg.stocks
-		m.loading = false
+		m.Stocks = msg.stocks
+		m.Loading = false
 	case stocksLoadError:
-		m.loading = false
+		m.Loading = false
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "up", "k":
-			if m.selected > 0 {
-				m.selected--
+			if m.Selected > 0 {
+				m.Selected--
 			} else {
-				m.selected = len(m.stocks) - 1
+				m.Selected = len(m.Stocks) - 1
 			}
 		case "down", "j":
-			if m.selected < len(m.stocks)-1 {
-				m.selected++
+			if m.Selected < len(m.Stocks)-1 {
+				m.Selected++
 			} else {
-				m.selected = 0
+				m.Selected = 0
 			}
 		case "ctrl+b", "esc":
-			m.backPressed = true
+			m.BackPressed = true
 		}
 	}
 	return m, nil
@@ -93,55 +94,55 @@ func (m *CurrentStocksModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *CurrentStocksModel) View() string {
 	s := "\n"
-	s += TitleStyle.Render("📈 Current Stock Prices") + "\n\n"
+	s += styles.TitleStyle.Render("📈 Current Stock Prices") + "\n\n"
 
-	if m.loading {
+	if m.Loading {
 		s += "Loading current stock prices...\n"
 	} else {
-		if len(m.stocks) == 0 {
+		if len(m.Stocks) == 0 {
 			s += "No current stock prices available.\n"
 		} else {
 			// Display at most 10 stocks at a time, centered on selected
 			const viewportHeight = 10
 
 			// Adjust scrollOffset to keep selected item in view
-			if m.selected < m.scrollOffset {
-				m.scrollOffset = m.selected
+			if m.Selected < m.ScrollOffset {
+				m.ScrollOffset = m.Selected
 			}
-			if m.selected >= m.scrollOffset+viewportHeight {
-				m.scrollOffset = m.selected - viewportHeight + 1
+			if m.Selected >= m.ScrollOffset+viewportHeight {
+				m.ScrollOffset = m.Selected - viewportHeight + 1
 			}
 
 			// Ensure scrollOffset doesn't go past the end
-			maxScrollOffset := len(m.stocks) - viewportHeight
+			maxScrollOffset := len(m.Stocks) - viewportHeight
 			if maxScrollOffset < 0 {
 				maxScrollOffset = 0
 			}
-			if m.scrollOffset > maxScrollOffset {
-				m.scrollOffset = maxScrollOffset
+			if m.ScrollOffset > maxScrollOffset {
+				m.ScrollOffset = maxScrollOffset
 			}
 
 			// Display visible stocks
-			endIdx := m.scrollOffset + viewportHeight
-			if endIdx > len(m.stocks) {
-				endIdx = len(m.stocks)
+			endIdx := m.ScrollOffset + viewportHeight
+			if endIdx > len(m.Stocks) {
+				endIdx = len(m.Stocks)
 			}
 
-			for i := m.scrollOffset; i < endIdx; i++ {
-				stock := m.stocks[i]
+			for i := m.ScrollOffset; i < endIdx; i++ {
+				stock := m.Stocks[i]
 				line := fmt.Sprintf("%s: $%.2f (as of %s)", stock.Symbol, stock.Price, stock.Timestamp)
-				if i == m.selected {
-					s += fmt.Sprintf("%s\n", SelectedStyle.Render("→ "+line))
+				if i == m.Selected {
+					s += fmt.Sprintf("%s\n", styles.SelectedStyle.Render("→ "+line))
 				} else {
-					s += fmt.Sprintf("%s\n", UnselectedStyle.Render("  "+line))
+					s += fmt.Sprintf("%s\n", styles.UnselectedStyle.Render("  "+line))
 				}
 			}
 
 			// Show pagination info
-			s += fmt.Sprintf("\n(%d of %d)\n", m.selected+1, len(m.stocks))
+			s += fmt.Sprintf("\n(%d of %d)\n", m.Selected+1, len(m.Stocks))
 		}
 	}
 
-	s += FooterStyle.Render("↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }

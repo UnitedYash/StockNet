@@ -1,24 +1,25 @@
-package tui
+package stock
 
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"StockNet/internal/cli/tui/styles"
 )
 
 // Model for stock symbol search/input page
 type SearchStockModel struct {
 	input       string   // User input for stock symbol
-	confirmed   bool     // User pressed enter
-	backPressed bool
+	Confirmed   bool     // User pressed enter
+	BackPressed bool
 	cursor      int      // Cursor position in input
 }
 
 // returns initial search stock page model
-func newSearchStockPage() *SearchStockModel {
+func NewSearchStockPage() *SearchStockModel {
 	return &SearchStockModel{
 		input:    "",
 		cursor:   0,
-		confirmed: false,
+		Confirmed: false,
 	}
 }
 
@@ -50,12 +51,12 @@ func (m *SearchStockModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "end":
 			m.cursor = len(m.input)
 		case "enter":
-			if len(m.input) > 0 && !m.confirmed {
-				m.confirmed = true
+			if len(m.input) > 0 && !m.Confirmed {
+				m.Confirmed = true
 				return m, nil
 			}
 		case "ctrl+b", "esc":
-			m.backPressed = true
+			m.BackPressed = true
 		default:
 			// Add printable characters to input
 			if len(msg.String()) == 1 {
@@ -75,7 +76,7 @@ func (m *SearchStockModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // renders UI for stock symbol search
 func (m *SearchStockModel) View() string {
 	s := "\n"
-	s += TitleStyle.Render("🔍 Search Stock") + "\n\n"
+	s += styles.TitleStyle.Render("🔍 Search Stock") + "\n\n"
 
 	s += "Enter stock symbol (e.g., AAPL, GOOGL): \n"
 
@@ -90,13 +91,13 @@ func (m *SearchStockModel) View() string {
 		}
 	}
 
-	s += InputStyle.Render(inputDisplay) + "\n\n"
+	s += styles.InputStyle.Render(inputDisplay) + "\n\n"
 
 	if len(m.input) == 0 {
-		s += FooterStyle.Render("Type symbol and press Enter • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+		s += styles.FooterStyle.Render("Type symbol and press Enter • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	} else {
-		s += SuccessStyle.Render(fmt.Sprintf("Symbol: %s", m.input)) + "\n"
-		s += FooterStyle.Render("Press Enter to search • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+		s += styles.SuccessStyle.Render(fmt.Sprintf("Symbol: %s", m.input)) + "\n"
+		s += styles.FooterStyle.Render("Press Enter to search • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	}
 
 	return s

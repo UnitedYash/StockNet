@@ -1,8 +1,9 @@
-package tui
+package portfolio
 
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"StockNet/internal/cli/tui/styles"
 	"StockNet/internal/database"
 )
 
@@ -16,14 +17,14 @@ type Portfolio struct {
 // Model for viewing user's portfolios
 type ViewPortfoliosModel struct {
 	portfolios  []Portfolio
-	selected    int
+	Selected    int
 	loading     bool
-	backPressed bool
+	BackPressed bool
 	error       string
 	currentUserID int
 }
 
-type portfolioSelectedMsg struct {
+type PortfolioSelectedMsg struct {
 	Portfolio Portfolio
 }
 
@@ -35,13 +36,13 @@ type portfoliosErrorMsg struct {
 	err error
 }
 
-// returns initial view portfolios page model
-func newViewPortfoliosPageWithUserID(userID int) *ViewPortfoliosModel {
+// NewViewPortfoliosPageWithUserID returns initial view portfolios page model
+func NewViewPortfoliosPageWithUserID(userID int) *ViewPortfoliosModel {
 	return &ViewPortfoliosModel{
 		portfolios:    []Portfolio{},
-		selected:      0,
+		Selected:      0,
 		loading:       true,
-		backPressed:   false,
+		BackPressed:   false,
 		currentUserID: userID,
 	}
 }
@@ -94,22 +95,22 @@ func (m *ViewPortfoliosModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "up", "k":
-			if m.selected > 0 {
-				m.selected--
+			if m.Selected > 0 {
+				m.Selected--
 			}
 		case "down", "j":
-			if m.selected < len(m.portfolios)-1 {
-				m.selected++
+			if m.Selected < len(m.portfolios)-1 {
+				m.Selected++
 			}
 		case "enter":
 			if (len(m.portfolios) > 0) {
-				selectedPortfolio := m.portfolios[m.selected]
+				selectedPortfolio := m.portfolios[m.Selected]
 				return m, func() tea.Msg {
-					return portfolioSelectedMsg{Portfolio: selectedPortfolio}
+					return PortfolioSelectedMsg{Portfolio: selectedPortfolio}
 				}
 			}
 		case "ctrl+b", "esc":
-			m.backPressed = true
+			m.BackPressed = true
 		}
 	}
 	return m, nil
@@ -118,22 +119,22 @@ func (m *ViewPortfoliosModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // renders the view portfolios page
 func (m *ViewPortfoliosModel) View() string {
 	s := "\n"
-	s += TitleStyle.Render("📊 Your Portfolios") + "\n\n"
+	s += styles.TitleStyle.Render("📊 Your Portfolios") + "\n\n"
 
 	if m.loading {
 		s += "Loading portfolios...\n"
 	} else if m.error != "" {
-		s += ErrorStyle.Render(m.error) + "\n"
+		s += styles.ErrorStyle.Render(m.error) + "\n"
 	} else if len(m.portfolios) == 0 {
 		s += "No portfolios found. Create one to get started!\n"
 	} else {
-		s += HeaderStyle.Render("ID    Name                          Cash Account") + "\n"
+		s += styles.HeaderStyle.Render("ID    Name                          Cash Account") + "\n"
 		s += "────────────────────────────────────────────────────────\n"
 
 		for i, p := range m.portfolios {
 			line := fmt.Sprintf("%-5s %-30s $%.2f", p.PortfolioID, p.Name, p.CashAccount)
-			if i == m.selected {
-				s += SelectedStyle.Render(line) + "\n"
+			if i == m.Selected {
+				s += styles.SelectedStyle.Render(line) + "\n"
 			} else {
 				s += line + "\n"
 			}
@@ -141,6 +142,6 @@ func (m *ViewPortfoliosModel) View() string {
 	}
 
 	s += "\n"
-	s += FooterStyle.Render("↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }

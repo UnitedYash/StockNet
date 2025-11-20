@@ -1,22 +1,23 @@
-package tui
+package stock
 
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"StockNet/internal/cli/tui/styles"
 	"StockNet/internal/database"
 )
 
 // BuyStockSearchModel - Search and select stock to buy
 type BuyStockSearchModel struct {
-	stocks       []Stock
-	selected     int
-	loading      bool
-	backPressed  bool
+	Stocks       []Stock
+	Selected     int
+	Loading      bool
+	BackPressed  bool
 	error        string
 	currentUserID int
-	portfolioID  string
-	scrollOffset int
-	cashAccount  float64
+	PortfolioID  string
+	ScrollOffset int
+	CashAccount  float64
 }
 
 type buyStockSearchLoadedMsg struct {
@@ -27,21 +28,21 @@ type buyStockSearchErrorMsg struct {
 	err error
 }
 
-type stockSelectedForBuyMsg struct {
+type StockSelectedForBuyMsg struct {
 	Stock Stock
 }
 
 // returns initial buy stock search page model
-func newBuyStockSearchPageWithPortfolio(userID int, portfolioID string, cashAccount float64) *BuyStockSearchModel {
+func NewBuyStockSearchPageWithPortfolio(userID int, portfolioID string, cashAccount float64) *BuyStockSearchModel {
 	return &BuyStockSearchModel{
-		stocks:       []Stock{},
-		selected:     0,
-		loading:      true,
-		backPressed:  false,
+		Stocks:       []Stock{},
+		Selected:     0,
+		Loading:      true,
+		BackPressed:  false,
 		currentUserID: userID,
-		portfolioID:  portfolioID,
-		scrollOffset: 0,
-		cashAccount:  cashAccount,
+		PortfolioID:  portfolioID,
+		ScrollOffset: 0,
+		CashAccount:  cashAccount,
 	}
 }
 
@@ -74,35 +75,35 @@ func (m *BuyStockSearchModel) Init() tea.Cmd {
 func (m *BuyStockSearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case buyStockSearchLoadedMsg:
-		m.stocks = msg.stocks
-		m.loading = false
+		m.Stocks = msg.stocks
+		m.Loading = false
 		m.error = ""
 	case buyStockSearchErrorMsg:
-		m.loading = false
+		m.Loading = false
 		m.error = fmt.Sprintf("Error loading stocks: %v", msg.err)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "up", "k":
-			if m.selected > 0 {
-				m.selected--
+			if m.Selected > 0 {
+				m.Selected--
 			} else {
-				m.selected = len(m.stocks) - 1
+				m.Selected = len(m.Stocks) - 1
 			}
 		case "down", "j":
-			if m.selected < len(m.stocks)-1 {
-				m.selected++
+			if m.Selected < len(m.Stocks)-1 {
+				m.Selected++
 			} else {
-				m.selected = 0
+				m.Selected = 0
 			}
 		case "enter":
-			if len(m.stocks) > 0 {
-				selectedStock := m.stocks[m.selected]
+			if len(m.Stocks) > 0 {
+				selectedStock := m.Stocks[m.Selected]
 				return m, func() tea.Msg {
-					return stockSelectedForBuyMsg{Stock: selectedStock}
+					return StockSelectedForBuyMsg{Stock: selectedStock}
 				}
 			}
 		case "ctrl+b", "esc":
-			m.backPressed = true
+			m.BackPressed = true
 		}
 	}
 	return m, nil
@@ -111,61 +112,61 @@ func (m *BuyStockSearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // renders the buy stock search page
 func (m *BuyStockSearchModel) View() string {
 	s := "\n"
-	s += TitleStyle.Render("📈 Select Stock to Buy") + "\n"
-	s += InputStyle.Render(fmt.Sprintf("Cash Available: $%.2f", m.cashAccount)) + "\n\n"
+	s += styles.TitleStyle.Render("📈 Select Stock to Buy") + "\n"
+	s += styles.InputStyle.Render(fmt.Sprintf("Cash Available: $%.2f", m.CashAccount)) + "\n\n"
 
-	if m.loading {
+	if m.Loading {
 		s += "Loading available stocks...\n"
 	} else if m.error != "" {
-		s += ErrorStyle.Render(m.error) + "\n"
-	} else if len(m.stocks) == 0 {
+		s += styles.ErrorStyle.Render(m.error) + "\n"
+	} else if len(m.Stocks) == 0 {
 		s += "No stocks available for purchase.\n"
 	} else {
 		// Display at most 10 stocks at a time, centered on selected
 		const viewportHeight = 10
 
 		// Adjust scrollOffset to keep selected item in view
-		if m.selected < m.scrollOffset {
-			m.scrollOffset = m.selected
+		if m.Selected < m.ScrollOffset {
+			m.ScrollOffset = m.Selected
 		}
-		if m.selected >= m.scrollOffset+viewportHeight {
-			m.scrollOffset = m.selected - viewportHeight + 1
+		if m.Selected >= m.ScrollOffset+viewportHeight {
+			m.ScrollOffset = m.Selected - viewportHeight + 1
 		}
 
 		// Ensure scrollOffset doesn't go past the end
-		maxScrollOffset := len(m.stocks) - viewportHeight
+		maxScrollOffset := len(m.Stocks) - viewportHeight
 		if maxScrollOffset < 0 {
 			maxScrollOffset = 0
 		}
-		if m.scrollOffset > maxScrollOffset {
-			m.scrollOffset = maxScrollOffset
+		if m.ScrollOffset > maxScrollOffset {
+			m.ScrollOffset = maxScrollOffset
 		}
 
 		// Display header
-		s += HeaderStyle.Render("Symbol          Price        Updated") + "\n"
+		s += styles.HeaderStyle.Render("Symbol          Price        Updated") + "\n"
 		s += "────────────────────────────────────────────────────────\n"
 
 		// Display visible stocks
-		endIdx := m.scrollOffset + viewportHeight
-		if endIdx > len(m.stocks) {
-			endIdx = len(m.stocks)
+		endIdx := m.ScrollOffset + viewportHeight
+		if endIdx > len(m.Stocks) {
+			endIdx = len(m.Stocks)
 		}
 
-		for i := m.scrollOffset; i < endIdx; i++ {
-			stock := m.stocks[i]
+		for i := m.ScrollOffset; i < endIdx; i++ {
+			stock := m.Stocks[i]
 			line := fmt.Sprintf("%-15s $%-10.2f %s", stock.Symbol, stock.Price, stock.Timestamp)
-			if i == m.selected {
-				s += SelectedStyle.Render("→ " + line) + "\n"
+			if i == m.Selected {
+				s += styles.SelectedStyle.Render("→ " + line) + "\n"
 			} else {
-				s += UnselectedStyle.Render("  " + line) + "\n"
+				s += styles.UnselectedStyle.Render("  " + line) + "\n"
 			}
 		}
 
 		// Show pagination info
-		s += fmt.Sprintf("\n(%d of %d)\n", m.selected+1, len(m.stocks))
+		s += fmt.Sprintf("\n(%d of %d)\n", m.Selected+1, len(m.Stocks))
 	}
 
 	s += "\n"
-	s += FooterStyle.Render("↑/↓ or k/j to navigate • Press Enter to select stock • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("↑/↓ or k/j to navigate • Press Enter to select stock • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }

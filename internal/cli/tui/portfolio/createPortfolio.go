@@ -1,9 +1,10 @@
-package tui
+package portfolio
 
 import (
 	"fmt"
 	"strconv"
 	tea "github.com/charmbracelet/bubbletea"
+	"StockNet/internal/cli/tui/styles"
 	"StockNet/internal/database"
 )
 
@@ -15,8 +16,8 @@ type CreatePortfolioModel struct {
 	cursor          int     // Cursor position in current input
 	portfolioName   string  // Parsed portfolio name
 	cashAmount      float64 // Parsed cash amount
-	confirmed       bool    // User confirmed creation
-	backPressed     bool
+	Confirmed       bool    // User confirmed creation
+	BackPressed     bool
 	loading         bool
 	error           string
 	successMessage  string
@@ -32,15 +33,15 @@ type portfolioCreationErrorMsg struct {
 	err error
 }
 
-// returns initial create portfolio page model
-func newCreatePortfolioPageWithUserID(userID int) *CreatePortfolioModel {
+// NewCreatePortfolioPageWithUserID returns initial create portfolio page model
+func NewCreatePortfolioPageWithUserID(userID int) *CreatePortfolioModel {
 	return &CreatePortfolioModel{
 		step:          0, // Start with name input
 		nameInput:     "",
 		cashInput:     "",
 		cursor:        0,
-		confirmed:     false,
-		backPressed:   false,
+		Confirmed:     false,
+		BackPressed:   false,
 		loading:       false,
 		currentUserID: userID,
 	}
@@ -64,7 +65,7 @@ func (m *CreatePortfolioModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+b", "esc":
-			m.backPressed = true
+			m.BackPressed = true
 		case "enter":
 			if m.step == 0 && len(m.nameInput) > 0 {
 				// Move to cash input step
@@ -81,7 +82,7 @@ func (m *CreatePortfolioModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.cashAmount = amount
 				m.step = 2
-				m.confirmed = true
+				m.Confirmed = true
 				m.loading = true
 				return m, m.createPortfolioInDB()
 			}
@@ -163,13 +164,13 @@ func (m *CreatePortfolioModel) createPortfolioInDB() tea.Cmd {
 // renders the create portfolio page
 func (m *CreatePortfolioModel) View() string {
 	s := "\n"
-	s += TitleStyle.Render("➕ Create New Portfolio") + "\n\n"
+	s += styles.TitleStyle.Render("➕ Create New Portfolio") + "\n\n"
 
 	if m.loading {
 		s += "Creating portfolio...\n"
 	} else if m.successMessage != "" {
-		s += SuccessStyle.Render(m.successMessage) + "\n"
-		s += FooterStyle.Render("Press 'Ctrl + b' or 'Esc' to go back to portfolio menu") + "\n\n"
+		s += styles.SuccessStyle.Render(m.successMessage) + "\n"
+		s += styles.FooterStyle.Render("Press 'Ctrl + b' or 'Esc' to go back to portfolio menu") + "\n\n"
 	} else if m.step == 0 {
 		// Input portfolio name
 		s += "Enter portfolio name (up to 40 characters): \n\n"
@@ -183,17 +184,17 @@ func (m *CreatePortfolioModel) View() string {
 			}
 		}
 
-		s += InputStyle.Render(inputDisplay) + "\n\n"
+		s += styles.InputStyle.Render(inputDisplay) + "\n\n"
 
 		if m.error != "" {
-			s += ErrorStyle.Render(m.error) + "\n\n"
+			s += styles.ErrorStyle.Render(m.error) + "\n\n"
 		}
 
 		if len(m.nameInput) > 0 {
-			s += SuccessStyle.Render(fmt.Sprintf("Portfolio Name: %s", m.nameInput)) + "\n"
+			s += styles.SuccessStyle.Render(fmt.Sprintf("Portfolio Name: %s", m.nameInput)) + "\n"
 		}
 
-		s += FooterStyle.Render("Type name and press Enter • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+		s += styles.FooterStyle.Render("Type name and press Enter • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	} else if m.step == 1 {
 		// Input cash amount
 		s += fmt.Sprintf("Portfolio: %s\n", m.portfolioName)
@@ -208,17 +209,17 @@ func (m *CreatePortfolioModel) View() string {
 			}
 		}
 
-		s += InputStyle.Render(inputDisplay) + "\n\n"
+		s += styles.InputStyle.Render(inputDisplay) + "\n\n"
 
 		if m.error != "" {
-			s += ErrorStyle.Render(m.error) + "\n\n"
+			s += styles.ErrorStyle.Render(m.error) + "\n\n"
 		}
 
 		if len(m.cashInput) > 0 {
-			s += SuccessStyle.Render(fmt.Sprintf("Initial Cash: $%s", m.cashInput)) + "\n"
+			s += styles.SuccessStyle.Render(fmt.Sprintf("Initial Cash: $%s", m.cashInput)) + "\n"
 		}
 
-		s += FooterStyle.Render("Type amount and press Enter • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+		s += styles.FooterStyle.Render("Type amount and press Enter • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	}
 
 	return s

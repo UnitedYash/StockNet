@@ -1,10 +1,11 @@
-package tui
+package stock
 
 import (
 	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"StockNet/internal/cli/tui/styles"
 	"StockNet/internal/database"
 	"github.com/NimbleMarkets/ntcharts/canvas"
 	"github.com/NimbleMarkets/ntcharts/linechart"
@@ -25,9 +26,9 @@ type HistoricalPrice struct {
 type StockDetailsModel struct {
 	symbol        string
 	timeRange     string                // week, month, quarter, year, 5years
-	selectedRange int                   // Index of selected time range
-	confirmed     bool
-	backPressed   bool
+	SelectedRange int                   // Index of selected time range
+	Confirmed     bool
+	BackPressed   bool
 	loading       bool
 	prices        []HistoricalPrice
 	error         string
@@ -42,10 +43,10 @@ type historicalPricesErrorMsg struct {
 }
 
 // returns initial stock details page model
-func newStockDetailsPage(symbol string) *StockDetailsModel {
+func NewStockDetailsPage(symbol string) *StockDetailsModel {
 	return &StockDetailsModel{
 		symbol:        symbol,
-		selectedRange: 0,
+		SelectedRange: 0,
 		loading:       true,
 		prices:        []HistoricalPrice{},
 	}
@@ -59,8 +60,8 @@ func (m *StockDetailsModel) GetTimeRanges() []string {
 // GetDaysForRange returns the number of days for the selected range
 func (m *StockDetailsModel) GetDaysForRange() int {
 	ranges := []int{7, 30, 90, 365, 1825}
-	if m.selectedRange < len(ranges) {
-		return ranges[m.selectedRange]
+	if m.SelectedRange < len(ranges) {
+		return ranges[m.SelectedRange]
 	}
 	return 30
 }
@@ -124,20 +125,20 @@ func (m *StockDetailsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "left", "h":
-			if m.selectedRange > 0 {
-				m.selectedRange--
+			if m.SelectedRange > 0 {
+				m.SelectedRange--
 				m.loading = true
 				return m, m.Init()
 			}
 		case "right", "l":
 			ranges := m.GetTimeRanges()
-			if m.selectedRange < len(ranges)-1 {
-				m.selectedRange++
+			if m.SelectedRange < len(ranges)-1 {
+				m.SelectedRange++
 				m.loading = true
 				return m, m.Init()
 			}
 		case "ctrl+b", "esc":
-			m.backPressed = true
+			m.BackPressed = true
 		}
 	}
 	return m, nil
@@ -146,15 +147,15 @@ func (m *StockDetailsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // renders ASCII chart of historical prices
 func (m *StockDetailsModel) View() string {
 	s := "\n"
-	s += TitleStyle.Render(fmt.Sprintf("📊 %s Historical Prices", m.symbol)) + "\n\n"
+	s += styles.TitleStyle.Render(fmt.Sprintf("📊 %s Historical Prices", m.symbol)) + "\n\n"
 
 	ranges := m.GetTimeRanges()
 	s += "Select Time Range:\n"
 	for i, r := range ranges {
-		if i == m.selectedRange {
-			s += SelectedStyle.Render("  → " + r) + "\n"
+		if i == m.SelectedRange {
+			s += styles.SelectedStyle.Render("  → " + r) + "\n"
 		} else {
-			s += UnselectedStyle.Render("    " + r) + "\n"
+			s += styles.UnselectedStyle.Render("    " + r) + "\n"
 		}
 	}
 	s += "\n"
@@ -162,7 +163,7 @@ func (m *StockDetailsModel) View() string {
 	if m.loading {
 		s += "Loading historical prices...\n"
 	} else if m.error != "" {
-		s += ErrorStyle.Render(m.error) + "\n"
+		s += styles.ErrorStyle.Render(m.error) + "\n"
 	} else if len(m.prices) == 0 {
 		s += "No historical data available for this stock.\n"
 	} else {
@@ -178,11 +179,11 @@ func (m *StockDetailsModel) View() string {
 		s += fmt.Sprintf("Low:    $%.2f\n", minPrice)
 		s += fmt.Sprintf("High:   $%.2f\n", maxPrice)
 		s += fmt.Sprintf("Latest: $%.2f\n", currentPrice)
-		s += SuccessStyle.Render(fmt.Sprintf("Change: %.2f%%\n", change))
+		s += styles.SuccessStyle.Render(fmt.Sprintf("Change: %.2f%%\n", change))
 	}
 
 	s += "\n"
-	s += FooterStyle.Render("← / → or h/l to change range • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("← / → or h/l to change range • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
 

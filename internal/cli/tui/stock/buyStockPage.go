@@ -1,8 +1,9 @@
-package tui
+package stock
 
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"StockNet/internal/cli/tui/styles"
 )
 
 // BuyStockModel - Enter quantity and confirm purchase
@@ -11,12 +12,12 @@ type BuyStockModel struct {
 	quantity      string // Input as string for editing
 	cursor        int
 	loading       bool
-	backPressed   bool
-	confirmed     bool
+	BackPressed   bool
+	Confirmed     bool
 	error         string
 	currentUserID int
-	portfolioID   string
-	cashAccount   float64
+	PortfolioID   string
+	CashAccount   float64
 }
 
 type buyStockConfirmedMsg struct {
@@ -29,17 +30,17 @@ type buyStockErrorMsg struct {
 }
 
 // returns initial buy stock page model
-func newBuyStockPageWithStock(userID int, portfolioID string, stock Stock, cashAccount float64) *BuyStockModel {
+func NewBuyStockPageWithStock(userID int, portfolioID string, stock Stock, cashAccount float64) *BuyStockModel {
 	return &BuyStockModel{
 		stock:         stock,
 		quantity:      "",
 		cursor:        0,
 		loading:       false,
-		backPressed:   false,
-		confirmed:     false,
+		BackPressed:   false,
+		Confirmed:     false,
 		currentUserID: userID,
-		portfolioID:   portfolioID,
-		cashAccount:   cashAccount,
+		PortfolioID:   portfolioID,
+		CashAccount:   cashAccount,
 	}
 }
 
@@ -74,12 +75,12 @@ func (m *BuyStockModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "end":
 			m.cursor = len(m.quantity)
 		case "enter":
-			if len(m.quantity) > 0 && !m.confirmed {
-				m.confirmed = true
+			if len(m.quantity) > 0 && !m.Confirmed {
+				m.Confirmed = true
 				return m, nil
 			}
 		case "ctrl+b", "esc":
-			m.backPressed = true
+			m.BackPressed = true
 		default:
 			// Add only numeric characters
 			if len(msg.String()) == 1 {
@@ -98,16 +99,16 @@ func (m *BuyStockModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // renders the buy stock page
 func (m *BuyStockModel) View() string {
 	s := "\n"
-	s += TitleStyle.Render(fmt.Sprintf("💰 Buy %s", m.stock.Symbol)) + "\n"
-	s += InputStyle.Render(fmt.Sprintf("Cash Available: $%.2f", m.cashAccount)) + "\n\n"
+	s += styles.TitleStyle.Render(fmt.Sprintf("💰 Buy %s", m.stock.Symbol)) + "\n"
+	s += styles.InputStyle.Render(fmt.Sprintf("Cash Available: $%.2f", m.CashAccount)) + "\n\n"
 
 	if m.error != "" {
-		s += ErrorStyle.Render(m.error) + "\n\n"
+		s += styles.ErrorStyle.Render(m.error) + "\n\n"
 	}
 
 	// Display stock information
-	s += InputStyle.Render(fmt.Sprintf("Current Price: $%.2f", m.stock.Price)) + "\n"
-	s += InputStyle.Render(fmt.Sprintf("Last Updated: %s", m.stock.Timestamp)) + "\n\n"
+	s += styles.InputStyle.Render(fmt.Sprintf("Current Price: $%.2f", m.stock.Price)) + "\n"
+	s += styles.InputStyle.Render(fmt.Sprintf("Last Updated: %s", m.stock.Timestamp)) + "\n\n"
 
 	// Display quantity input
 	s += "Enter quantity to buy:\n"
@@ -122,7 +123,7 @@ func (m *BuyStockModel) View() string {
 		}
 	}
 
-	s += InputStyle.Render(quantityDisplay) + "\n\n"
+	s += styles.InputStyle.Render(quantityDisplay) + "\n\n"
 
 	// Calculate and display total cost if quantity is entered
 	if len(m.quantity) > 0 {
@@ -130,13 +131,13 @@ func (m *BuyStockModel) View() string {
 		fmt.Sscanf(m.quantity, "%d", &quantity)
 		if quantity > 0 {
 			totalCost := m.stock.Price * float64(quantity)
-			s += SuccessStyle.Render(fmt.Sprintf("Total Cost: $%.2f", totalCost)) + "\n\n"
-			s += FooterStyle.Render("Press Enter to confirm purchase • 'Ctrl + b' or 'Esc' to cancel") + "\n\n"
+			s += styles.SuccessStyle.Render(fmt.Sprintf("Total Cost: $%.2f", totalCost)) + "\n\n"
+			s += styles.FooterStyle.Render("Press Enter to confirm purchase • 'Ctrl + b' or 'Esc' to cancel") + "\n\n"
 		} else {
-			s += FooterStyle.Render("Enter a valid quantity • 'Ctrl + b' or 'Esc' to cancel") + "\n\n"
+			s += styles.FooterStyle.Render("Enter a valid quantity • 'Ctrl + b' or 'Esc' to cancel") + "\n\n"
 		}
 	} else {
-		s += FooterStyle.Render("Type quantity and press Enter • 'Ctrl + b' or 'Esc' to cancel") + "\n\n"
+		s += styles.FooterStyle.Render("Type quantity and press Enter • 'Ctrl + b' or 'Esc' to cancel") + "\n\n"
 	}
 
 	return s

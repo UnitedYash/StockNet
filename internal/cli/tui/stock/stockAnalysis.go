@@ -1,26 +1,27 @@
-package tui
+package stock
 
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"StockNet/internal/cli/tui/styles"
 )
 
 // Model for the stock analysis page
 type StockAnalysisModel struct {
-	backPressed bool
-	options     []string  // menu options
-	selected    int
-	confirmed   bool
+	BackPressed bool
+	Options     []string  // menu options
+	Selected    int
+	Confirmed   bool
 	stocks      []Stock   // loaded stocks
 	loading     bool      // loading state
 }
 
 // returns initial stock analysis page model
-func newStockAnalysisPage() *StockAnalysisModel {
+func NewStockAnalysisPage() *StockAnalysisModel {
 	return &StockAnalysisModel{
-		options:   []string{"View Current Stocks", "Search Stock"},
-		selected:  0,
-		confirmed: false,
+		Options:   []string{"View Current Stocks", "Search Stock"},
+		Selected:  0,
+		Confirmed: false,
 		stocks:    []Stock{},
 		loading:   false,
 	}
@@ -35,21 +36,21 @@ func (m *StockAnalysisModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "up", "k":
-			if m.selected > 0 {
-				m.selected--
+			if m.Selected > 0 {
+				m.Selected--
 			} else {
-				m.selected = len(m.options) - 1
+				m.Selected = len(m.Options) - 1
 			}
 		case "down", "j":
-			if m.selected < len(m.options)-1 {
-				m.selected++
+			if m.Selected < len(m.Options)-1 {
+				m.Selected++
 			} else {
-				m.selected = 0
+				m.Selected = 0
 			}
 		case "enter":
-			m.confirmed = true
+			m.Confirmed = true
 		case "ctrl+b", "esc":
-			m.backPressed = true
+			m.BackPressed = true
 		}
 	}
 	return m, nil
@@ -57,18 +58,18 @@ func (m *StockAnalysisModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *StockAnalysisModel) View() string {
 	s := "\n"
-	s += TitleStyle.Render("📊 Stock Data & Analysis") + "\n\n"
+	s += styles.TitleStyle.Render("📊 Stock Data & Analysis") + "\n\n"
 
 	// Display menu options
-	for i, option := range m.options {
-		if i == m.selected {
-			s += fmt.Sprintf("%s\n", SelectedStyle.Render("→ "+option))
+	for i, option := range m.Options {
+		if i == m.Selected {
+			s += fmt.Sprintf("%s\n", styles.SelectedStyle.Render("→ "+option))
 		} else {
-			s += fmt.Sprintf("%s\n", UnselectedStyle.Render("  "+option))
+			s += fmt.Sprintf("%s\n", styles.UnselectedStyle.Render("  "+option))
 		}
 	}
 
-	s += FooterStyle.Render("↑/↓ or k/j to navigate • Enter to select • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("↑/↓ or k/j to navigate • Enter to select • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
 

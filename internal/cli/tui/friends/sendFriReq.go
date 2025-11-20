@@ -1,8 +1,9 @@
-package tui
+package friends
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"StockNet/internal/auth"
+	"StockNet/internal/cli/tui/styles"
 	"StockNet/internal/database"
 	"time"
 	"fmt"
@@ -12,17 +13,17 @@ import (
 
 // Model for the send friend request page
 type SendFriReqModel struct {
-	backPressed bool
-	user        *auth.User
+	BackPressed bool
+	User        *auth.User
 	email		string
 	message		string
 
 }
 
 // returns initial send friend request model
-func newSendFriReqPage(user *auth.User) *SendFriReqModel {
+func NewSendFriReqPage(user *auth.User) *SendFriReqModel {
 	return &SendFriReqModel{
-		user: user,
+		User: user,
 	}
 }
 // returns initial command for the send friend request page to run (nothing)
@@ -35,13 +36,13 @@ func (m *SendFriReqModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+b", "esc":
-			m.backPressed = true
+			m.BackPressed = true
 		case "enter":
 			if m.email != "" {
 				// attempt to send a request
 
 				// skip if they put in their own email
-				if m.email == m.user.Email {
+				if m.email == m.User.Email {
 					m.message = "✗ Cannot send friend request to yourself"
 					break
 				}
@@ -63,7 +64,7 @@ func (m *SendFriReqModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				err = db.QueryRow(
 					"SELECT status, last_modified FROM friendstatus WHERE sender=$1 AND receiver=$2",
-					m.user.Email, m.email,
+					m.User.Email, m.email,
 				).Scan(&status, &lastModified)
 				
 
@@ -89,7 +90,7 @@ func (m *SendFriReqModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// otherwise, can update the row the timer is past 5 minutes
 					_, err = db.Exec(
 						"UPDATE friendstatus SET status='pending', last_modified=NOW() WHERE sender=$1 AND receiver=$2",
-						m.user.Email, m.email,
+						m.User.Email, m.email,
 					)
 
 					if err != nil {
@@ -101,7 +102,7 @@ func (m *SendFriReqModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else { // no row exists, insert new
 					_, err = db.Exec(
 						"INSERT INTO friendstatus(sender, receiver, status, last_modified) VALUES($1, $2, 'pending', NOW())",
-						m.user.Email, m.email,
+						m.User.Email, m.email,
 					)
 
 					if err != nil {
@@ -133,15 +134,15 @@ func (m *SendFriReqModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *SendFriReqModel) View() string {
 	s := "\n"
-	s += TitleStyle.Render("📨 Send Friend Request") + "\n\n"
-	s += InputStyle.Render("Enter email: "+m.email) + "\n"
+	s += styles.TitleStyle.Render("📨 Send Friend Request") + "\n\n"
+	s += styles.InputStyle.Render("Enter email: "+m.email) + "\n"
 
 	if m.message != "" {
-		s += SuccessStyle.Render(m.message) + "\n"
+		s += styles.SuccessStyle.Render(m.message) + "\n"
 	}
 
-	s += FooterStyle.Render("'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("'Ctrl + b' or 'Esc' to go back") + "\n\n"
 
-	
+
 	return s
 }

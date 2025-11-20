@@ -1,8 +1,9 @@
-package tui
+package friends
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"StockNet/internal/auth"
+	"StockNet/internal/cli/tui/styles"
 	"StockNet/internal/database"
 	"fmt"
 
@@ -10,8 +11,8 @@ import (
 
 // struct to hold a friend
 type Friend struct {
-	friendEmail		string
-	friendName		string
+	FriendEmail		string
+	FriendName		string
 }
 // holds friends for update function
 type FriendsLoadedMsg struct {
@@ -24,22 +25,22 @@ type FriendsLoadError struct {
 
 // Model for the manage friend page
 type ManageFriendsModel struct {
-	backPressed bool
-	user        *auth.User
-	selected	int
-	friends		[]Friend
-	loading		bool
-	error		string
+	BackPressed bool
+	User        *auth.User
+	Selected	int
+	Friends		[]Friend
+	Loading		bool
+	Error		string
 
 }
 
 // returns initial stock list model
-func newManageFriendsPage(user *auth.User) *ManageFriendsModel {
+func NewManageFriendsPage(user *auth.User) *ManageFriendsModel {
 	return &ManageFriendsModel{
-		user: 		user,
-		friends:	[]Friend{},
-		selected:	0,
-		loading:	true,
+		User: 		user,
+		Friends:	[]Friend{},
+		Selected:	0,
+		Loading:	true,
 	}
 }
 // returns initial command for the manage page to run
@@ -60,10 +61,10 @@ func (m *ManageFriendsModel) Init() tea.Cmd {
 						ELSE f.sender
 					END
 				)
-			WHERE 
+			WHERE
 				(f.sender = $1 OR f.receiver = $1)
 				AND f.status = 'accepted';
-		`, m.user.Email)
+		`, m.User.Email)
 
 		if err != nil {
 			return FriendsLoadError{err: err}
@@ -74,7 +75,7 @@ func (m *ManageFriendsModel) Init() tea.Cmd {
 		var friends []Friend
 		for rows.Next() {
 			var fr Friend
-			if err := rows.Scan(&fr.friendEmail, &fr.friendName); err != nil {
+			if err := rows.Scan(&fr.FriendEmail, &fr.FriendName); err != nil {
 				return FriendsLoadError{err: err} 
 			}
 			friends = append(friends, fr)
@@ -87,38 +88,38 @@ func (m *ManageFriendsModel) Init() tea.Cmd {
 func (m *ManageFriendsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case FriendsLoadedMsg:
-		m.friends = msg.friends
-		m.loading = false
-		m.error = ""
+		m.Friends = msg.friends
+		m.Loading = false
+		m.Error = ""
 	case FriendsLoadError:
-		m.loading = false
-		m.error = fmt.Sprintf("Error loading requests: %v", msg.err)
+		m.Loading = false
+		m.Error = fmt.Sprintf("Error loading requests: %v", msg.err)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+b", "esc":
-			m.backPressed = true
+			m.BackPressed = true
 		case "up", "k":
-			if m.selected > 0 {
+			if m.Selected > 0 {
 				// go up an option
-				m.selected--
+				m.Selected--
 			} else {
 				// at the top so wrap around to bottom
-				m.selected = len(m.friends) - 1
+				m.Selected = len(m.Friends) - 1
 			}
 		case "down", "j":
-			if m.selected < len(m.friends) - 1 {
-				m.selected++
+			if m.Selected < len(m.Friends) - 1 {
+				m.Selected++
 			} else {
 				// at last option so wrap around to the top
-				m.selected = 0
+				m.Selected = 0
 			}
 		case "r":
 			//TODO: press r to remove a friend
-			if len(m.friends) == 0 {
+			if len(m.Friends) == 0 {
 				break
 			}
 			// get the highlighted friend 
-			fri := m.friends[m.selected]
+			fri := m.Friends[m.Selected]
 			db := database.New().GetDB()
 
 			// change the relationship to status deleted
@@ -133,19 +134,19 @@ func (m *ManageFriendsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						(sender = $2 AND receiver = $1)
 					)
 					AND status = 'accepted'
-			`, m.user.Email, fri.friendEmail)
+			`, m.User.Email, fri.FriendEmail)
 			if err != nil {
-				m.error = fmt.Sprintf("Error removing friend: %v", err)
+				m.Error = fmt.Sprintf("Error removing friend: %v", err)
 				break
 			}
 			// remove friend from UI friends list
-			m.friends = append(m.friends[:m.selected], m.friends[m.selected+1:]...)
+			m.Friends = append(m.Friends[:m.Selected], m.Friends[m.Selected+1:]...)
 
 			// fix the indexing
-			if m.selected >= len(m.friends) && len(m.friends) > 0 {
-				m.selected = len(m.friends) - 1
+			if m.Selected >= len(m.Friends) && len(m.Friends) > 0 {
+				m.Selected = len(m.Friends) - 1
 			}
-			m.error = ""
+			m.Error = ""
 
 
 		}
@@ -155,25 +156,25 @@ func (m *ManageFriendsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *ManageFriendsModel) View() string {
 	s := "\n"
-	s += TitleStyle.Render("🫂  Manage Friends") + "\n\n"
+	s += styles.TitleStyle.Render("🫂  Manage Friends") + "\n\n"
 
-	if m.loading {
+	if m.Loading {
 		s += "Loading friends...\n"
-	} else if m.error != "" {
-			s += ErrorStyle.Render(m.error) + "\n"
-	} else if len(m.friends) == 0 {
+	} else if m.Error != "" {
+			s += styles.ErrorStyle.Render(m.Error) + "\n"
+	} else if len(m.Friends) == 0 {
 		s += "No Friends.\n"
 	} else {
-		for i, fri := range m.friends {
-			line := fmt.Sprintf("%s (%s)", fri.friendEmail, fri.friendName)
-			if i == m.selected {
-			s += fmt.Sprintf("%s\n", SelectedStyle.Render("→ "+ line))
+		for i, fri := range m.Friends {
+			line := fmt.Sprintf("%s (%s)", fri.FriendEmail, fri.FriendName)
+			if i == m.Selected {
+			s += fmt.Sprintf("%s\n", styles.SelectedStyle.Render("→ "+ line))
 			} else {
-				s += fmt.Sprintf("%s\n", UnselectedStyle.Render("  "+ line))
+				s += fmt.Sprintf("%s\n", styles.UnselectedStyle.Render("  "+ line))
 			}
 		}
 	}
 
-	s += FooterStyle.Render("'r' to remove friends • ↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("'r' to remove friends • ↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
