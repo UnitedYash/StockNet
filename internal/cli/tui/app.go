@@ -28,6 +28,7 @@ const (
 	OutFriReqState					// 15
 	ViewPortfoliosState				// 16
 	CreatePortfolioState			// 17
+	ManageFriendsState				// 18
 )
 
 // AppModel is the root model for the entire app
@@ -52,6 +53,7 @@ type AppModel struct {
 	viewFriReq			*ViewFriReqModel
 	incFriReq			*IncFriReqModel
 	outFriReq 			*OutFriReqModel
+	manageFriends 		*ManageFriendsModel
 
 }
 
@@ -77,6 +79,7 @@ func NewAppModel() *AppModel {
 		viewFriReq:			newViewFriReqPage(nil),
 		incFriReq:			newIncFriReqPage(nil),
 		outFriReq:			newOutFriReqPage(nil),
+		manageFriends:		newManageFriendsPage(nil),
 
 	}
 }
@@ -303,6 +306,10 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "View Friends Requests":
 					m.state = ViewFriReqState
 					m.viewFriReq = newViewFriReqPage(m.social.GetUser())
+				case "Manage Friends":
+					m.state = ManageFriendsState
+					m.manageFriends = newManageFriendsPage(m.social.GetUser())
+					cmd = m.manageFriends.Init()
 				}
 			}
 		}
@@ -383,7 +390,6 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = OutFriReqState
 					m.outFriReq = newOutFriReqPage(m.viewFriReq.GetUser())
 					cmd = m.outFriReq.Init()
-
 				}
 			}
 		}
@@ -404,6 +410,15 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.outFriReq.backPressed {
 			m.outFriReq.backPressed = false
 			m.state = ViewFriReqState
+		}
+		return m, cmd
+	case ManageFriendsState:
+		manageFriends, cmd := m.manageFriends.Update(msg)
+		m.manageFriends = manageFriends.(*ManageFriendsModel)
+		// Go back to friend & social page from manage friends page
+		if m.manageFriends.backPressed {
+			m.manageFriends.backPressed = false
+			m.state = SocialState
 		}
 		return m, cmd
 	}
@@ -449,6 +464,8 @@ func (m *AppModel) View() string {
 		return m.incFriReq.View()
 	case OutFriReqState:
 		return m.outFriReq.View()
+	case ManageFriendsState:
+		return m.manageFriends.View()
 	}
 	return ""
 }
