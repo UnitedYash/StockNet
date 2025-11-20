@@ -378,9 +378,12 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "Incoming Requests (Accept / Reject)":
 					m.state = IncFriReqState
 					m.incFriReq = newIncFriReqPage(m.viewFriReq.GetUser())
+					cmd = m.incFriReq.Init()
 				case "Outgoing Requests (Cancel)":
 					m.state = OutFriReqState
 					m.outFriReq = newOutFriReqPage(m.viewFriReq.GetUser())
+					cmd = m.outFriReq.Init()
+
 				}
 			}
 		}
