@@ -31,6 +31,7 @@ const (
 	ViewSpecPortfolioState			// 18
 	BuyStockSearchState				// 19
 	BuyStockState					// 20
+	ManageFriendsState				// 21
 )
 
 // AppModel is the root model for the entire app
@@ -58,6 +59,7 @@ type AppModel struct {
 	viewSpecPortfolio	*viewSpecPortfolioModel
 	buyStockSearch		*BuyStockSearchModel
 	buyStock			*BuyStockModel
+	manageFriends		*ManageFriendsModel
 }
 
 // NewAppModel creates a new app model
@@ -85,6 +87,7 @@ func NewAppModel() *AppModel {
 		viewSpecPortfolio:	nil,
 		buyStockSearch:		nil,
 		buyStock:			nil,
+		manageFriends:		newManageFriendsPage(nil),
 	}
 }
 // returns intial command for the application to run
@@ -352,6 +355,10 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "View Friends Requests":
 					m.state = ViewFriReqState
 					m.viewFriReq = newViewFriReqPage(m.social.GetUser())
+				case "Manage Friends":
+					m.state = ManageFriendsState
+					m.manageFriends = newManageFriendsPage(m.social.GetUser())
+					cmd = m.manageFriends.Init()
 				}
 			}
 		}
@@ -432,7 +439,6 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = OutFriReqState
 					m.outFriReq = newOutFriReqPage(m.viewFriReq.GetUser())
 					cmd = m.outFriReq.Init()
-
 				}
 			}
 		}
@@ -491,7 +497,18 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.buyStock.backPressed = false
 			m.state = BuyStockSearchState
 		}
+		
 		return m, cmd
+	case ManageFriendsState:
+		manageFriends, cmd := m.manageFriends.Update(msg)
+		m.manageFriends = manageFriends.(*ManageFriendsModel)
+		// Go back to friend & social page from manage friends page
+		if m.manageFriends.backPressed {
+			m.manageFriends.backPressed = false
+			m.state = SocialState
+		}
+		return m, cmd
+		
 	}
 	return m, nil
 }
@@ -541,6 +558,8 @@ func (m *AppModel) View() string {
 		return m.buyStockSearch.View()
 	case BuyStockState:
 		return m.buyStock.View()
+	case ManageFriendsState:
+		return m.manageFriends.View()
 	}
 	return ""
 }

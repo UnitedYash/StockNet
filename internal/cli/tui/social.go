@@ -20,10 +20,9 @@ func newSocialPage(user *auth.User) *SocialModel {
 	return &SocialModel{
 		user: user,
 		options: []string{
-			"View Friends",
+			"Manage Friends",
 			"View Friends Requests",
 			"Send Friend Request",
-			"Remove Friend",
 			"View Shared Stock Lists",
 		},
 		selected: 0,
