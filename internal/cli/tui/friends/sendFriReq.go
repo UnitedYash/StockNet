@@ -62,6 +62,11 @@ func (m *SendFriReqModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				var status string
 				var lastModified time.Time
 
+				// for determining who is the sender and receiver of the relationship
+				// these are default values, changes depending if the current user is receiver or if sender
+				var sender = m.User.Email
+				var receiver = m.email
+
 				err = db.QueryRow(
 					"SELECT status, last_modified FROM friendstatus WHERE sender=$1 AND receiver=$2",
 					m.User.Email, m.email,
@@ -73,9 +78,23 @@ func (m *SendFriReqModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if err.Error() != "sql: no rows in result set" {
 						m.message = "✗ Database error: " + err.Error()
 						break
-					}
+					} else {
+						// then no row exist, theres case they have a relationship but user is the receiver
+						err = db.QueryRow(
+							"SELECT status, last_modified FROM friendstatus WHERE sender=$2 AND receiver=$1",
+							m.User.Email, m.email,
+						).Scan(&status, &lastModified)
+						if err != nil {
+							if err.Error() != "sql: no rows in result set" {
+								m.message = "✗ Database error: " + err.Error()
+								break
+							}
+						}
+						// row exist, swap sender and receiver
+						sender = m.email
+						receiver = m.User.Email
+					} 
 				}
-
 				if err == nil { // row exists
 					now := time.Now()
 					cooldown := 5 * time.Minute
@@ -85,13 +104,30 @@ func (m *SendFriReqModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					} else if (status == "rejected" || status == "deleted") && now.Sub(lastModified) < cooldown {
 						m.message = "✗ Cannot re-send yet. Try again later"
 						break
+					} else if status == "accepted" {
+						m.message = "💖 You're already friends!"
+						break
 					}
 
-					// otherwise, can update the row the timer is past 5 minutes
-					_, err = db.Exec(
-						"UPDATE friendstatus SET status='pending', last_modified=NOW() WHERE sender=$1 AND receiver=$2",
-						m.User.Email, m.email,
-					)
+					// otherwise, can update the row the timer is past 5 minutes depending on 
+					if sender == m.User.Email {
+						// no swap happend, current user is the sender
+						_, err = db.Exec(
+							"UPDATE friendstatus SET status='pending', last_modified=NOW() WHERE sender=$1 AND receiver=$2",
+							sender, receiver,
+						)
+					} else {
+						// the current user is receiver and sending a request delete old one 
+						_, err = db.Exec(
+							"DELETE FROM friendstatus WHERE sender = $1 AND receiver = $2",
+							sender, receiver,
+						)
+						// now insert a fresh one
+						_, err = db.Exec(
+							"INSERT INTO friendstatus(sender, receiver, status, last_modified) VALUES($1, $2, 'pending', NOW())",
+							receiver, sender,
+						)
+					}
 
 					if err != nil {
 						m.message = "✗ Database error: " + err.Error()
@@ -100,18 +136,18 @@ func (m *SendFriReqModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.email = "" // clear input
 					}
 				} else { // no row exists, insert new
-					_, err = db.Exec(
-						"INSERT INTO friendstatus(sender, receiver, status, last_modified) VALUES($1, $2, 'pending', NOW())",
-						m.User.Email, m.email,
-					)
-
-					if err != nil {
-						m.message = "✗ Database error: " + err.Error()
-					} else {
-						m.message = fmt.Sprintf("✓ Friend request sent to %s", recipientUsername)
-						m.email = "" // clear input
-					}
+						_, err = db.Exec(
+							"INSERT INTO friendstatus(sender, receiver, status, last_modified) VALUES($1, $2, 'pending', NOW())",
+							m.User.Email, m.email,
+						)
 				}
+				if err != nil {
+					m.message = "✗ Database error: " + err.Error()
+				} else {
+					m.message = fmt.Sprintf("✓ Friend request sent to %s", recipientUsername)
+					m.email = "" // clear input
+				}
+				
 			}
 		case "backspace":
 			if len(m.email) > 0 {
