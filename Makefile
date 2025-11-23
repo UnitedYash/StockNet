@@ -1,64 +1,31 @@
-# Simple Makefile for a Go project
+# Simple Makefile for StockNet CLI
 
-# Build the application
-all: build test
-
-build:
-	@echo "Building..."
-	
-	
-	@go build -o main cmd/api/main.go
-
-# Run the application
+# Run the CLI application
 run:
 	@go run cmd/cli/main.go
-# Create DB container
-docker-run:
-	@if docker compose up --build 2>/dev/null; then \
-		: ; \
-	else \
-		echo "Falling back to Docker Compose V1"; \
-		docker-compose up --build; \
-	fi
 
-# Shutdown DB container
-docker-down:
-	@if docker compose down 2>/dev/null; then \
-		: ; \
-	else \
-		echo "Falling back to Docker Compose V1"; \
-		docker-compose down; \
-	fi
+# Build the CLI
+build-cli:
+	@echo "Building CLI..."
+	@go build -o stocknet-cli cmd/cli/main.go
 
-# Test the application
-test:
-	@echo "Testing..."
-	@go test ./... -v
-# Integrations Tests for the application
-itest:
-	@echo "Running integration tests..."
-	@go test ./internal/database -v
+# Build the API
+build-api:
+	@echo "Building API..."
+	@go build -o main cmd/api/main.go
 
-# Clean the binary
+# Clean binaries
 clean:
 	@echo "Cleaning..."
-	@rm -f main
+	@rm -f main stocknet-cli
 
-# Live Reload
+# Live reload (requires air: go install github.com/air-verse/air@latest)
 watch:
 	@if command -v air > /dev/null; then \
-            air; \
-            echo "Watching...";\
-        else \
-            read -p "Go's 'air' is not installed on your machine. Do you want to install it? [Y/n] " choice; \
-            if [ "$$choice" != "n" ] && [ "$$choice" != "N" ]; then \
-                go install github.com/air-verse/air@latest; \
-                air; \
-                echo "Watching...";\
-            else \
-                echo "You chose not to install air. Exiting..."; \
-                exit 1; \
-            fi; \
-        fi
+		air; \
+	else \
+		echo "Error: 'air' is not installed. Install with: go install github.com/air-verse/air@latest"; \
+		exit 1; \
+	fi
 
-.PHONY: all build run test clean watch docker-run docker-down itest
+.PHONY: run build-cli build-api clean watch
