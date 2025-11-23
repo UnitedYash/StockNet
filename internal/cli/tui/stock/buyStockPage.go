@@ -8,14 +8,14 @@ import (
 
 // BuyStockModel - Enter quantity and confirm purchase
 type BuyStockModel struct {
-	stock         Stock
-	quantity      string // Input as string for editing
-	cursor        int
-	loading       bool
+	Stock         Stock
+	Quantity      string // Input as string for editing
+	Cursor        int
+	Loading       bool
 	BackPressed   bool
 	Confirmed     bool
-	error         string
-	currentUserID int
+	Error         string
+	CurrentUserID int
 	PortfolioID   string
 	CashAccount   float64
 }
@@ -29,16 +29,21 @@ type buyStockErrorMsg struct {
 	err error
 }
 
+type BuyStockCompletedMsg struct {
+	Success bool
+	Message string
+}
+
 // returns initial buy stock page model
 func NewBuyStockPageWithStock(userID int, portfolioID string, stock Stock, cashAccount float64) *BuyStockModel {
 	return &BuyStockModel{
-		stock:         stock,
-		quantity:      "",
-		cursor:        0,
-		loading:       false,
+		Stock:         stock,
+		Quantity:      "",
+		Cursor:        0,
+		Loading:       false,
 		BackPressed:   false,
 		Confirmed:     false,
-		currentUserID: userID,
+		CurrentUserID: userID,
 		PortfolioID:   portfolioID,
 		CashAccount:   cashAccount,
 	}
@@ -53,29 +58,29 @@ func (m *BuyStockModel) Init() tea.Cmd {
 func (m *BuyStockModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case buyStockErrorMsg:
-		m.error = msg.err.Error()
-		m.loading = false
+		m.Error = msg.err.Error()
+		m.Loading = false
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "backspace":
-			if m.cursor > 0 {
-				m.quantity = m.quantity[:m.cursor-1] + m.quantity[m.cursor:]
-				m.cursor--
+			if m.Cursor > 0 {
+				m.Quantity = m.Quantity[:m.Cursor-1] + m.Quantity[m.Cursor:]
+				m.Cursor--
 			}
 		case "left":
-			if m.cursor > 0 {
-				m.cursor--
+			if m.Cursor > 0 {
+				m.Cursor--
 			}
 		case "right":
-			if m.cursor < len(m.quantity) {
-				m.cursor++
+			if m.Cursor < len(m.Quantity) {
+				m.Cursor++
 			}
 		case "home":
-			m.cursor = 0
+			m.Cursor = 0
 		case "end":
-			m.cursor = len(m.quantity)
+			m.Cursor = len(m.Quantity)
 		case "enter":
-			if len(m.quantity) > 0 && !m.Confirmed {
+			if len(m.Quantity) > 0 && !m.Confirmed {
 				m.Confirmed = true
 				return m, nil
 			}
@@ -87,8 +92,8 @@ func (m *BuyStockModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				runes := []rune(msg.String())
 				ch := runes[0]
 				if ch >= '0' && ch <= '9' {
-					m.quantity = m.quantity[:m.cursor] + string(ch) + m.quantity[m.cursor:]
-					m.cursor++
+					m.Quantity = m.Quantity[:m.Cursor] + string(ch) + m.Quantity[m.Cursor:]
+					m.Cursor++
 				}
 			}
 		}
@@ -99,38 +104,38 @@ func (m *BuyStockModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // renders the buy stock page
 func (m *BuyStockModel) View() string {
 	s := "\n"
-	s += styles.TitleStyle.Render(fmt.Sprintf("💰 Buy %s", m.stock.Symbol)) + "\n"
+	s += styles.TitleStyle.Render(fmt.Sprintf("💰 Buy %s", m.Stock.Symbol)) + "\n"
 	s += styles.InputStyle.Render(fmt.Sprintf("Cash Available: $%.2f", m.CashAccount)) + "\n\n"
 
-	if m.error != "" {
-		s += styles.ErrorStyle.Render(m.error) + "\n\n"
+	if m.Error != "" {
+		s += styles.ErrorStyle.Render(m.Error) + "\n\n"
 	}
 
 	// Display stock information
-	s += styles.InputStyle.Render(fmt.Sprintf("Current Price: $%.2f", m.stock.Price)) + "\n"
-	s += styles.InputStyle.Render(fmt.Sprintf("Last Updated: %s", m.stock.Timestamp)) + "\n\n"
+	s += styles.InputStyle.Render(fmt.Sprintf("Current Price: $%.2f", m.Stock.Price)) + "\n"
+	s += styles.InputStyle.Render(fmt.Sprintf("Last Updated: %s", m.Stock.Timestamp)) + "\n\n"
 
 	// Display quantity input
 	s += "Enter quantity to buy:\n"
 
 	// Display input field with cursor
-	quantityDisplay := m.quantity
-	if m.cursor <= len(quantityDisplay) {
-		if m.cursor == len(quantityDisplay) {
+	quantityDisplay := m.Quantity
+	if m.Cursor <= len(quantityDisplay) {
+		if m.Cursor == len(quantityDisplay) {
 			quantityDisplay += "|"
 		} else {
-			quantityDisplay = quantityDisplay[:m.cursor] + "|" + quantityDisplay[m.cursor:]
+			quantityDisplay = quantityDisplay[:m.Cursor] + "|" + quantityDisplay[m.Cursor:]
 		}
 	}
 
 	s += styles.InputStyle.Render(quantityDisplay) + "\n\n"
 
 	// Calculate and display total cost if quantity is entered
-	if len(m.quantity) > 0 {
+	if len(m.Quantity) > 0 {
 		quantity := 0
-		fmt.Sscanf(m.quantity, "%d", &quantity)
+		fmt.Sscanf(m.Quantity, "%d", &quantity)
 		if quantity > 0 {
-			totalCost := m.stock.Price * float64(quantity)
+			totalCost := m.Stock.Price * float64(quantity)
 			s += styles.SuccessStyle.Render(fmt.Sprintf("Total Cost: $%.2f", totalCost)) + "\n\n"
 			s += styles.FooterStyle.Render("Press Enter to confirm purchase • 'Ctrl + b' or 'Esc' to cancel") + "\n\n"
 		} else {
@@ -146,11 +151,11 @@ func (m *BuyStockModel) View() string {
 // GetQuantity returns the entered quantity as an integer
 func (m *BuyStockModel) GetQuantity() int {
 	quantity := 0
-	fmt.Sscanf(m.quantity, "%d", &quantity)
+	fmt.Sscanf(m.Quantity, "%d", &quantity)
 	return quantity
 }
 
 // GetStock returns the selected stock
 func (m *BuyStockModel) GetStock() Stock {
-	return m.stock
+	return m.Stock
 }

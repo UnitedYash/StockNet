@@ -1,6 +1,10 @@
 package tui
 
 import (
+	"context"
+	"fmt"
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"StockNet/internal/auth"
 	tuiauth "StockNet/internal/cli/tui/auth"
@@ -8,6 +12,7 @@ import (
 	"StockNet/internal/cli/tui/portfolio"
 	"StockNet/internal/cli/tui/shared"
 	"StockNet/internal/cli/tui/stock"
+	"StockNet/internal/database"
 )
 
 // AppState represents different screens in the app
@@ -33,9 +38,10 @@ const (
 	ViewPortfoliosState				// 16
 	CreatePortfolioState			// 17
 	ViewSpecPortfolioState			// 18
-	BuyStockSearchState				// 19
-	BuyStockState					// 20
-	ManageFriendsState				// 21
+	ViewHoldingsState				// 19
+	BuyStockSearchState				// 20
+	BuyStockState					// 21
+	ManageFriendsState				// 22
 )
 
 // AppModel is the root model for the entire app
@@ -61,6 +67,7 @@ type AppModel struct {
 	incFriReq			*friends.IncFriReqModel
 	outFriReq 			*friends.OutFriReqModel
 	viewSpecPortfolio	*portfolio.ViewSpecPortfolioModel
+	viewHoldings		*stock.ViewHoldingsModel
 	buyStockSearch		*stock.BuyStockSearchModel
 	buyStock			*stock.BuyStockModel
 	manageFriends		*friends.ManageFriendsModel
@@ -89,6 +96,7 @@ func NewAppModel() *AppModel {
 		incFriReq:			friends.NewIncFriReqPage(nil),
 		outFriReq:			friends.NewOutFriReqPage(nil),
 		viewSpecPortfolio:	nil,
+		viewHoldings:		nil,
 		buyStockSearch:		nil,
 		buyStock:			nil,
 		manageFriends:		friends.NewManageFriendsPage(nil),
@@ -277,13 +285,18 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewSpecPortfolio.OptionSelected = "" // Reset
 
 			switch option {
+			case "View Holdings":
+				m.state = ViewHoldingsState
+				portfolioID := m.viewSpecPortfolio.PortfolioID
+				m.viewHoldings = stock.NewViewHoldingsPageWithPortfolioID(portfolioID)
+				return m, m.viewHoldings.Init()
 			case "Buy Stock":
 				m.state = BuyStockSearchState
 				userID := int(m.currentUser.UserID)
 				portfolioID := m.viewSpecPortfolio.PortfolioID
 				cashAccount := m.viewSpecPortfolio.Portfolio.CashAccount
 				m.buyStockSearch = stock.NewBuyStockSearchPageWithPortfolio(userID, portfolioID, cashAccount)
-				cmd = m.buyStockSearch.Init()
+				return m, m.buyStockSearch.Init()
 			}
 		}
 
@@ -465,6 +478,17 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = ViewFriReqState
 		}
 		return m, cmd
+	case ViewHoldingsState:
+		viewHoldings, cmd := m.viewHoldings.Update(msg)
+		m.viewHoldings = viewHoldings.(*stock.ViewHoldingsModel)
+
+		// Go back to specific portfolio view from view holdings
+		if m.viewHoldings.BackPressed {
+			m.viewHoldings.BackPressed = false
+			m.state = ViewSpecPortfolioState
+		}
+		return m, cmd
+
 	case BuyStockSearchState:
 		buyStockSearch, cmd := m.buyStockSearch.Update(msg)
 		m.buyStockSearch = buyStockSearch.(*stock.BuyStockSearchModel)
@@ -490,10 +514,49 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Handle confirmed purchase
 		if m.buyStock.Confirmed {
-			// TODO: Execute the buy transaction
-			// For now, just go back to the portfolio view
 			m.buyStock.Confirmed = false
-			m.state = ViewSpecPortfolioState
+			// Execute the buy transaction asynchronously
+			return m, func() tea.Msg {
+				db := database.New()
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+
+				// Convert portfolioID from string to int
+				portfolioID := 0
+				fmt.Sscanf(m.buyStock.PortfolioID, "%d", &portfolioID)
+
+				err := db.BuyStock(
+					ctx,
+					portfolioID,
+					m.buyStock.Stock.Symbol,
+					m.buyStock.GetQuantity(),
+					m.buyStock.Stock.Price,
+				)
+
+				if err != nil {
+					return stock.BuyStockCompletedMsg{
+						Success: false,
+						Message: "✗ " + err.Error(),
+					}
+				}
+
+				return stock.BuyStockCompletedMsg{
+					Success: true,
+					Message: "✓ Stock purchase completed!",
+				}
+			}
+		}
+
+		// Handle buy completion message
+		if completedMsg, ok := msg.(stock.BuyStockCompletedMsg); ok {
+			if completedMsg.Success {
+				// Purchase successful, go back to portfolio view and refresh data
+				m.state = ViewSpecPortfolioState
+				return m, m.viewSpecPortfolio.RefreshPortfolio()
+			} else {
+				// Show error message in the buy stock page
+				m.buyStock.Error = completedMsg.Message
+			}
 		}
 
 		// Go back to stock search from buy stock page
@@ -501,7 +564,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.buyStock.BackPressed = false
 			m.state = BuyStockSearchState
 		}
-		
+
 		return m, cmd
 	case ManageFriendsState:
 		manageFriends, cmd := m.manageFriends.Update(msg)
@@ -558,6 +621,8 @@ func (m *AppModel) View() string {
 		return m.outFriReq.View()
 	case ViewSpecPortfolioState:
 		return m.viewSpecPortfolio.View()
+	case ViewHoldingsState:
+		return m.viewHoldings.View()
 	case BuyStockSearchState:
 		return m.buyStockSearch.View()
 	case BuyStockState:

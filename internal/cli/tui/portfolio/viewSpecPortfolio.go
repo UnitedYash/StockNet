@@ -4,6 +4,7 @@ import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
 	"StockNet/internal/cli/tui/styles"
+	"StockNet/internal/database"
 )
 
 type specificPortfolio struct {
@@ -46,6 +47,33 @@ func NewViewSpecPortfolioPageWithUserID(userID int, portfolioID string) *ViewSpe
 
 func (m *ViewSpecPortfolioModel) Init() tea.Cmd {
 	return nil
+}
+
+// RefreshPortfolio reloads the portfolio data from the database
+func (m *ViewSpecPortfolioModel) RefreshPortfolio() tea.Cmd {
+	return func() tea.Msg {
+		db := database.New().GetDB()
+
+		query := `SELECT portfolio_id, name, cash_account FROM Portfolio
+		          WHERE portfolio_id = $1`
+
+		var portfolioID int
+		var name string
+		var cashAccount float64
+
+		err := db.QueryRow(query, m.PortfolioID).Scan(&portfolioID, &name, &cashAccount)
+		if err != nil {
+			return specPortfolioErrorMsg{err: err}
+		}
+
+		return specPortfolioLoadedMsg{
+			portfolio: specificPortfolio{
+				PortfolioID: fmt.Sprintf("%d", portfolioID),
+				Name:        name,
+				CashAccount: cashAccount,
+			},
+		}
+	}
 }
 
 func (m *ViewSpecPortfolioModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
