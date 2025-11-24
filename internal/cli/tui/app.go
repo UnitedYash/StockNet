@@ -12,6 +12,7 @@ import (
 	"StockNet/internal/cli/tui/portfolio"
 	"StockNet/internal/cli/tui/shared"
 	"StockNet/internal/cli/tui/stock"
+	"StockNet/internal/cli/tui/stocklist"
 	"StockNet/internal/database"
 )
 
@@ -43,6 +44,9 @@ const (
 	BuyStockSearchState				// 21
 	BuyStockState					// 22
 	ManageFriendsState				// 23
+		CreateStockListState			// 24
+	ViewStockListsState			// 25
+
 )
 
 // AppModel is the root model for the entire app
@@ -57,7 +61,7 @@ type AppModel struct {
 	portfolio			*portfolio.PortfolioModel
 	viewPortfolios		*portfolio.ViewPortfoliosModel
 	createPortfolio		*portfolio.CreatePortfolioModel
-	stockList			*stock.StockListModel
+	stockList			*stocklist.StockListModel
 	stockAnalysis 		*stock.StockAnalysisModel
 	social				*shared.SocialModel
 	currentStocks		*stock.CurrentStocksModel
@@ -73,6 +77,8 @@ type AppModel struct {
 	buyStockSearch		*stock.BuyStockSearchModel
 	buyStock			*stock.BuyStockModel
 	manageFriends		*friends.ManageFriendsModel
+	createStockList		*stocklist.CreateStockListModel
+	viewMyStockList		*stocklist.ViewStockListsModel
 }
 
 // NewAppModel creates a new app model
@@ -87,7 +93,7 @@ func NewAppModel() *AppModel {
 		portfolio: 			portfolio.NewPortfolioPage(),
 		viewPortfolios:		portfolio.NewViewPortfoliosPageWithUserID(0), // Will be set with actual user ID
 		createPortfolio:		portfolio.NewCreatePortfolioPageWithUserID(0), // Will be set with actual user ID
-		stockList: 			stock.NewStockListPage(),
+		stockList: 			stocklist.NewStockListPage(nil),
 		stockAnalysis: 		stock.NewStockAnalysisPage(),
 		social:				shared.NewSocialPage(nil),
 		currentStocks:		stock.NewCurrentStocksPage(),
@@ -103,6 +109,8 @@ func NewAppModel() *AppModel {
 		buyStockSearch:		nil,
 		buyStock:			nil,
 		manageFriends:		friends.NewManageFriendsPage(nil),
+		createStockList:	stocklist.NewCreateStockListPage(nil),
+		viewMyStockList: 	stocklist.NewViewStockLists(nil),
 	}
 }
 // returns intial command for the application to run
@@ -211,7 +219,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.portfolio = portfolio.NewPortfolioPage()
 				case "My Stock Lists":
 					m.state = StockListState
-					m.stockList = stock.NewStockListPage()
+					m.stockList = stocklist.NewStockListPage(m.homepage.GetUser())
 				case "Stock Data & Analysis":
 					m.state = StockAnalysisState
 					m.stockAnalysis = stock.NewStockAnalysisPage()
@@ -329,13 +337,49 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case StockListState:
 		stockList, cmd := m.stockList.Update(msg)
-		m.stockList = stockList.(*stock.StockListModel)
+		m.stockList = stockList.(*stocklist.StockListModel)
+
+		if m.stockList.Selected >= 0 && m.stockList.Selected < len(m.stockList.Options) {
+			option := m.stockList.Options[m.stockList.Selected]
+			if m.stockList.Confirmed {
+				m.stockList.Confirmed = false
+				switch option {
+				case "Create New Stock List":
+					m.state = CreateStockListState
+					m.createStockList = stocklist.NewCreateStockListPage(m.stockList.GetUser())
+				case "My Stock Lists":
+					m.state = ViewStockListsState
+					m.viewMyStockList = stocklist.NewViewStockLists(m.stockList.GetUser())
+					cmd = m.viewMyStockList.Init()
+				}
+			}
+		}
 		// Go back to homepage from stock list page
 		if m.stockList.BackPressed {
 			m.stockList.BackPressed = false
 			m.state = HomePageState
 		}
 		return m, cmd
+	case CreateStockListState:
+		createStockList, cmd := m.createStockList.Update(msg)
+		m.createStockList = createStockList.(*stocklist.CreateStockListModel)
+		// Go back to main stock list page from create stock list page
+		if m.createStockList.BackPressed {
+			m.createStockList.BackPressed = false
+			m.state = StockListState
+		}
+		return m, cmd
+
+	case ViewStockListsState:
+		viewMyStockList, cmd := m.viewMyStockList.Update(msg)
+		m.viewMyStockList = viewMyStockList.(*stocklist.ViewStockListsModel)
+		// Go back to main stock list page from create stock list page
+		if m.viewMyStockList.BackPressed {
+			m.viewMyStockList.BackPressed = false
+			m.state = StockListState
+		}
+		return m, cmd
+
 	case StockAnalysisState:
 		stockAnalysis, cmd := m.stockAnalysis.Update(msg)
 		m.stockAnalysis = stockAnalysis.(*stock.StockAnalysisModel)
@@ -650,6 +694,10 @@ func (m *AppModel) View() string {
 		return m.buyStock.View()
 	case ManageFriendsState:
 		return m.manageFriends.View()
+	case CreateStockListState:
+		return m.createStockList.View()
+	case ViewStockListsState:
+		return m.viewMyStockList.View()
 	}
 	return ""
 }

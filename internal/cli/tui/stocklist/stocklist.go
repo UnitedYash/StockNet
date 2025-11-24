@@ -1,14 +1,15 @@
-package shared
+package stocklist
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"StockNet/internal/auth"
 	"StockNet/internal/cli/tui/styles"
+	"StockNet/internal/auth"
 	"fmt"
+
 )
 
-// Model for the social page
-type SocialModel struct {
+// Model for the stock list page
+type StockListModel struct {
 	Options		[]string
 	Selected  	int
 	BackPressed bool
@@ -16,24 +17,25 @@ type SocialModel struct {
 	User        *auth.User
 }
 
-// returns initial social page model
-func NewSocialPage(user *auth.User) *SocialModel {
-	return &SocialModel{
+// returns initial stock list model
+func NewStockListPage(user *auth.User) *StockListModel {
+	return &StockListModel{
 		User: user,
 		Options: []string{
-			"Manage Friends",
-			"View Friends Requests",
-			"Send Friend Request",
+			"My Stock Lists",
+			"Shared With Me",
+			"Public Stock Lists",
+			"Create New Stock List",
 		},
 		Selected: 0,
 	}
 }
-// returns initial command for the social page to run (nothing)
-func (m *SocialModel) Init() tea.Cmd {
+// returns initial command for the stock list page to run (nothing)
+func (m *StockListModel) Init() tea.Cmd {
 	return nil
 }
 // Handles incoming events and updates the model accordingly
-func (m *SocialModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *StockListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -61,10 +63,9 @@ func (m *SocialModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *SocialModel) View() string {
-
+func (m *StockListModel) View() string {
 	s := "\n"
-	s += styles.TitleStyle.Render("💬 Friends & Social") + "\n\n"
+	s += styles.TitleStyle.Render("🗂️  Stock List Dashboard") + "\n\n"
 
 	// highlight the selected option with a →
 	for i, option := range m.Options {
@@ -79,13 +80,6 @@ func (m *SocialModel) View() string {
 }
 
 // returns (logged in) user
-func (m *SocialModel) GetUser() *auth.User {
+func (m *StockListModel) GetUser() *auth.User {
 	return m.User
 }
-
-
-
-
-
-
-
