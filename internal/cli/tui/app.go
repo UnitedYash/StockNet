@@ -44,6 +44,7 @@ const (
 	BuyStockState					// 21
 	ManageFriendsState				// 22
 	CreateStockListState			// 23
+	ViewStockListsState				// 24
 )
 
 // AppModel is the root model for the entire app
@@ -74,6 +75,7 @@ type AppModel struct {
 	buyStock			*stock.BuyStockModel
 	manageFriends		*friends.ManageFriendsModel
 	createStockList		*stocklist.CreateStockListModel
+	viewMyStockList		*stocklist.ViewStockListsModel
 }
 
 // NewAppModel creates a new app model
@@ -104,6 +106,7 @@ func NewAppModel() *AppModel {
 		buyStock:			nil,
 		manageFriends:		friends.NewManageFriendsPage(nil),
 		createStockList:	stocklist.NewCreateStockListPage(nil),
+		viewMyStockList: 	stocklist.NewViewStockLists(nil),
 	}
 }
 // returns intial command for the application to run
@@ -335,6 +338,10 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "Create New Stock List":
 					m.state = CreateStockListState
 					m.createStockList = stocklist.NewCreateStockListPage(m.stockList.GetUser())
+				case "My Stock Lists":
+					m.state = ViewStockListsState
+					m.viewMyStockList = stocklist.NewViewStockLists(m.stockList.GetUser())
+					cmd = m.viewMyStockList.Init()
 				}
 			}
 		}
@@ -350,6 +357,16 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Go back to main stock list page from create stock list page
 		if m.createStockList.BackPressed {
 			m.createStockList.BackPressed = false
+			m.state = StockListState
+		}
+		return m, cmd
+
+	case ViewStockListsState:
+		viewMyStockList, cmd := m.viewMyStockList.Update(msg)
+		m.viewMyStockList = viewMyStockList.(*stocklist.ViewStockListsModel)
+		// Go back to main stock list page from create stock list page
+		if m.viewMyStockList.BackPressed {
+			m.viewMyStockList.BackPressed = false
 			m.state = StockListState
 		}
 		return m, cmd
@@ -657,6 +674,8 @@ func (m *AppModel) View() string {
 		return m.manageFriends.View()
 	case CreateStockListState:
 		return m.createStockList.View()
+	case ViewStockListsState:
+		return m.viewMyStockList.View()
 	}
 	return ""
 }

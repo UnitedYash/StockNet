@@ -28,7 +28,6 @@ func NewStockListPage(user *auth.User) *StockListModel {
 			"Create New Stock List",
 		},
 		Selected: 0,
-
 	}
 }
 // returns initial command for the stock list page to run (nothing)
