@@ -183,9 +183,9 @@ func (s *service) BuyStock(ctx context.Context, portfolioID int, symbol string, 
 
 	// Record transaction
 	_, err = tx.ExecContext(ctx,
-		`INSERT INTO transaction (portfolio_id, time, amount, buy_sell_price, shares_moved, type)
-		 VALUES ($1, NOW(), $2, $3, $4, 'BUY')`,
-		portfolioID, totalCost, price, quantity,
+		`INSERT INTO transaction (portfolio_id, time, amount, buy_sell_price, shares_moved, type, stock_symbol)
+		 VALUES ($1, NOW(), $2, $3, $4, 'BUY', $5)`,
+		portfolioID, totalCost, price, quantity, symbol,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to record transaction: %w", err)

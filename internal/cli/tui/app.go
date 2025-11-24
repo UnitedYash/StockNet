@@ -39,9 +39,10 @@ const (
 	CreatePortfolioState			// 17
 	ViewSpecPortfolioState			// 18
 	ViewHoldingsState				// 19
-	BuyStockSearchState				// 20
-	BuyStockState					// 21
-	ManageFriendsState				// 22
+	ViewTransactionsState			// 20
+	BuyStockSearchState				// 21
+	BuyStockState					// 22
+	ManageFriendsState				// 23
 )
 
 // AppModel is the root model for the entire app
@@ -68,6 +69,7 @@ type AppModel struct {
 	outFriReq 			*friends.OutFriReqModel
 	viewSpecPortfolio	*portfolio.ViewSpecPortfolioModel
 	viewHoldings		*stock.ViewHoldingsModel
+	viewTransactions	*portfolio.ViewTransactionsModel
 	buyStockSearch		*stock.BuyStockSearchModel
 	buyStock			*stock.BuyStockModel
 	manageFriends		*friends.ManageFriendsModel
@@ -97,6 +99,7 @@ func NewAppModel() *AppModel {
 		outFriReq:			friends.NewOutFriReqPage(nil),
 		viewSpecPortfolio:	nil,
 		viewHoldings:		nil,
+		viewTransactions:	nil,
 		buyStockSearch:		nil,
 		buyStock:			nil,
 		manageFriends:		friends.NewManageFriendsPage(nil),
@@ -290,6 +293,11 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				portfolioID := m.viewSpecPortfolio.PortfolioID
 				m.viewHoldings = stock.NewViewHoldingsPageWithPortfolioID(portfolioID)
 				return m, m.viewHoldings.Init()
+			case "View Transactions":
+				m.state = ViewTransactionsState
+				portfolioID := m.viewSpecPortfolio.PortfolioID
+				m.viewTransactions = portfolio.NewViewTransactionsPage(portfolioID)
+				return m, m.viewTransactions.Init()
 			case "Buy Stock":
 				m.state = BuyStockSearchState
 				userID := int(m.currentUser.UserID)
@@ -489,6 +497,17 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, cmd
 
+	case ViewTransactionsState:
+		viewTransactions, cmd := m.viewTransactions.Update(msg)
+		m.viewTransactions = viewTransactions.(*portfolio.ViewTransactionsModel)
+
+		// Go back to specific portfolio view from view transactions
+		if m.viewTransactions.BackPressed {
+			m.viewTransactions.BackPressed = false
+			m.state = ViewSpecPortfolioState
+		}
+		return m, cmd
+
 	case BuyStockSearchState:
 		buyStockSearch, cmd := m.buyStockSearch.Update(msg)
 		m.buyStockSearch = buyStockSearch.(*stock.BuyStockSearchModel)
@@ -623,6 +642,8 @@ func (m *AppModel) View() string {
 		return m.viewSpecPortfolio.View()
 	case ViewHoldingsState:
 		return m.viewHoldings.View()
+	case ViewTransactionsState:
+		return m.viewTransactions.View()
 	case BuyStockSearchState:
 		return m.buyStockSearch.View()
 	case BuyStockState:
