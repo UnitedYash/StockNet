@@ -1,19 +1,20 @@
-package tui
+package auth
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"StockNet/internal/auth"
+	userauth "StockNet/internal/auth"
+	"StockNet/internal/cli/tui/styles"
 )
 // Model for register view
 type RegisterModel struct {
-	backPressed bool
+	BackPressed bool
 	step        int // 0: name, 1: email, 2: password, 3: confirm password
 	name        string
 	email       string
 	password    string
 	confirmPwd  string
 	message     string
-	user        *auth.User
+	User        *userauth.User
 }
 
 // returns intital register model 
@@ -44,11 +45,11 @@ func (m *RegisterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.password != m.confirmPwd {
 					m.message = "✗ Passwords do not match!"
 				} else {
-					user, err := auth.Register(m.email, m.password, m.name)
+					user, err := userauth.Register(m.email, m.password, m.name)
 					if err != nil {
 						m.message = "✗ " + err.Error()
 					} else {
-						m.user = user
+						m.User = user
 						m.message = "✓ Registration successful!"
 					}
 				}
@@ -65,7 +66,7 @@ func (m *RegisterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.confirmPwd = m.confirmPwd[:len(m.confirmPwd)-1]
 			}
 		case "ctrl+b", "esc":
-			m.backPressed = true
+			m.BackPressed = true
 		default:
 			// any other key would indicate user typing in text field
 			// also block any non-printable letters
@@ -90,32 +91,32 @@ func (m *RegisterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // renders UI based on current register model
 func (m *RegisterModel) View() string {
 	s := "\n"
-	s += TitleStyle.Render("📝 Register") + "\n\n"
+	s += styles.TitleStyle.Render("📝 Register") + "\n\n"
 
 	if m.step == 0 {
-		s += InputStyle.Render("Enter name: "+m.name) + "\n"
+		s += styles.InputStyle.Render("Enter name: "+m.name) + "\n"
 	} else if m.step == 1 {
-		s += InputStyle.Render("Name: "+m.name) + "\n"
-		s += InputStyle.Render("Enter email: "+m.email) + "\n"
+		s += styles.InputStyle.Render("Name: "+m.name) + "\n"
+		s += styles.InputStyle.Render("Enter email: "+m.email) + "\n"
 	} else if m.step == 2 {
-		s += InputStyle.Render("Name: "+m.name) + "\n"
-		s += InputStyle.Render("Email: "+m.email) + "\n"
-		s += InputStyle.Render("Enter password: "+hidePassword(m.password)) + "\n"
+		s += styles.InputStyle.Render("Name: "+m.name) + "\n"
+		s += styles.InputStyle.Render("Email: "+m.email) + "\n"
+		s += styles.InputStyle.Render("Enter password: "+hidePassword(m.password)) + "\n"
 	} else {
-		s += InputStyle.Render("Name: "+m.name) + "\n"
-		s += InputStyle.Render("Email: "+m.email) + "\n"
-		s += InputStyle.Render("Password: "+hidePassword(m.password)) + "\n"
-		s += InputStyle.Render("Confirm password: "+hidePassword(m.confirmPwd)) + "\n"
+		s += styles.InputStyle.Render("Name: "+m.name) + "\n"
+		s += styles.InputStyle.Render("Email: "+m.email) + "\n"
+		s += styles.InputStyle.Render("Password: "+hidePassword(m.password)) + "\n"
+		s += styles.InputStyle.Render("Confirm password: "+hidePassword(m.confirmPwd)) + "\n"
 	}
 
 	if m.message != "" {
-		s += SuccessStyle.Render(m.message) + "\n"
+		s += styles.SuccessStyle.Render(m.message) + "\n"
 	}
 
-	s += FooterStyle.Render("Press Enter to continue • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("Press Enter to continue • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
-// returns registered (logged in) user 
-func (m *RegisterModel) GetUser() *auth.User {
-	return m.user
+// returns registered (logged in) user
+func (m *RegisterModel) GetUser() *userauth.User {
+	return m.User
 }

@@ -1,17 +1,18 @@
-package tui
+package auth
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"StockNet/internal/auth"
+	userauth "StockNet/internal/auth"
+	"StockNet/internal/cli/tui/styles"
 )
 // Model for login page
 type LoginModel struct {
-	backPressed bool
+	BackPressed bool
 	step        int // 0: email, 1: password
 	email       string
 	password    string
 	message     string
-	user        *auth.User
+	User        *userauth.User
 }
 // returns initial login model
 func NewLogin() *LoginModel {
@@ -35,11 +36,11 @@ func (m *LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.step = 1
 			} else if m.step == 1 && m.password != "" {
 				// attempt to login
-				user, err := auth.Login(m.email, m.password)
+				user, err := userauth.Login(m.email, m.password)
 				if err != nil {
 					m.message = "✗ " + err.Error()
 				} else {
-					m.user = user
+					m.User = user
 					m.message = "✓ Login successful!"
 				}
 			}
@@ -51,10 +52,10 @@ func (m *LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.password = m.password[:len(m.password)-1]
 			}
 		case "ctrl+b", "esc":
-			m.backPressed = true
+			m.BackPressed = true
 		default:
 			// any other key would indicate user typing in the text field
-			// also block any non-printable letters 
+			// also block any non-printable letters
 			if len(msg.String()) == 1 {
 				r := rune(msg.String()[0])
 				if r >= 32 && r != 127 {
@@ -72,20 +73,20 @@ func (m *LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // renders UI for login view basedo on the current model
 func (m *LoginModel) View() string {
 	s := "\n"
-	s += TitleStyle.Render("🔐 Login") + "\n\n"
+	s += styles.TitleStyle.Render("🔐 Login") + "\n\n"
 
 	if m.step == 0 {
-		s += InputStyle.Render("Enter email: "+m.email) + "\n"
+		s += styles.InputStyle.Render("Enter email: "+m.email) + "\n"
 	} else {
-		s += InputStyle.Render("Email: "+m.email) + "\n"
-		s += InputStyle.Render("Enter password: "+hidePassword(m.password)) + "\n"
+		s += styles.InputStyle.Render("Email: "+m.email) + "\n"
+		s += styles.InputStyle.Render("Enter password: "+hidePassword(m.password)) + "\n"
 	}
 
 	if m.message != "" {
-		s += SuccessStyle.Render(m.message) + "\n"
+		s += styles.SuccessStyle.Render(m.message) + "\n"
 	}
 
-	s += FooterStyle.Render("Press Enter to continue • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("Press Enter to continue • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
 // replaces typed in password with asterisks
@@ -97,6 +98,6 @@ func hidePassword(password string) string {
 	return result
 }
 // returns currently logged in user
-func (m *LoginModel) GetUser() *auth.User {
-	return m.user
+func (m *LoginModel) GetUser() *userauth.User {
+	return m.User
 }

@@ -1,26 +1,27 @@
-package tui
+package shared
 
 import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"StockNet/internal/cli/tui/styles"
 )
 // Model for main page view
 type MainMenuModel struct {
-	options   []string
-	selected  int
-	confirmed bool
+	Options   []string
+	Selected  int
+	Confirmed bool
 }
 // returns main page initial model
 func NewMainMenu() *MainMenuModel {
 	return &MainMenuModel{
-		options: []string{
+		Options: []string{
 			"Login",
 			"Register",
 			"Configure",
 			"Quit",
 		},
-		selected: 0,
+		Selected: 0,
 	}
 }
 // returns intial command for the menu page to run
@@ -36,37 +37,37 @@ func (m *MainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "up", "k":
-			if m.selected > 0 {
-				m.selected--
+			if m.Selected > 0 {
+				m.Selected--
 			} else {
-				m.selected = len(m.options) - 1
+				m.Selected = len(m.Options) - 1
 			}
 		case "down", "j":
-			if m.selected < len(m.options)-1 {
-				m.selected++
+			if m.Selected < len(m.Options)-1 {
+				m.Selected++
 			} else {
-				m.selected = 0
+				m.Selected = 0
 			}
 		case "enter":
-			m.confirmed = true
+			m.Confirmed = true
 		}
 	}
 	return m, nil
 }
-// renders UI, looks at model at current state, return string s which is the UI 
+// renders UI, looks at model at current state, return string s which is the UI
 func (m *MainMenuModel) View() string {
 	s := "\n"
-	s += TitleStyle.Render("🚀 StockNet") + "\n\n"
+	s += styles.TitleStyle.Render("🚀 StockNet") + "\n\n"
 	// highlight the selected option with a →
-	for i, option := range m.options {
-		if i == m.selected {
-			s += fmt.Sprintf("%s\n", SelectedStyle.Render("→ "+option))
+	for i, option := range m.Options {
+		if i == m.Selected {
+			s += fmt.Sprintf("%s\n", styles.SelectedStyle.Render("→ "+option))
 		} else {
-			s += fmt.Sprintf("%s\n", UnselectedStyle.Render("  "+option))
+			s += fmt.Sprintf("%s\n", styles.UnselectedStyle.Render("  "+option))
 		}
 	}
 	// The footer
-	s += FooterStyle.Render("↑/↓ or k/j to navigate • Enter to select • Ctrl + c to quit") + "\n\n"
-	
+	s += styles.FooterStyle.Render("↑/↓ or k/j to navigate • Enter to select • Ctrl + c to quit") + "\n\n"
+
 	return s
 }

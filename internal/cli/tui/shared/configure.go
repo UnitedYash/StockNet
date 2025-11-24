@@ -1,13 +1,14 @@
-package tui
+package shared
 
 import (
 	"StockNet/internal/config"
+	"StockNet/internal/cli/tui/styles"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 // MOdel for configure page
 type ConfigureModel struct {
-	backPressed bool
+	BackPressed bool
 	vmIP        string
 	message     string
 	saved       bool
@@ -45,7 +46,7 @@ func (m *ConfigureModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.vmIP = m.vmIP[:len(m.vmIP)-1]
 			}
 		case "ctrl+b", "esc":
-			m.backPressed = true
+			m.BackPressed = true
 		default:
 			// any other key implies user typing in text field
 			// also block any non-printable letters
@@ -64,18 +65,18 @@ func (m *ConfigureModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // renders UI based on the current version of the configure model
 func (m *ConfigureModel) View() string {
 	s := "\n"
-	s += TitleStyle.Render("⚙️  Configure VM IP") + "\n\n"
+	s += styles.TitleStyle.Render("⚙️  Configure VM IP") + "\n\n"
 
-	s += InputStyle.Render("Enter VM External IP: "+m.vmIP) + "\n"
+	s += styles.InputStyle.Render("Enter VM External IP: "+m.vmIP) + "\n"
 
 	if m.message != "" {
 		if m.saved {
-			s += SuccessStyle.Render(m.message) + "\n"
+			s += styles.SuccessStyle.Render(m.message) + "\n"
 		} else {
-			s += ErrorStyle.Render(m.message) + "\n"
+			s += styles.ErrorStyle.Render(m.message) + "\n"
 		}
 	}
 
-	s += FooterStyle.Render("Press Enter to save • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("Press Enter to save • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
