@@ -23,30 +23,28 @@ const (
 	MainMenuState AppState = iota 	// 0
 	LoginState						// 1
 	RegisterState					// 2
-	ConfigureState					// 3
-	HomePageState					// 4
-	PortfolioState					// 5
-	StockListState					// 6
-	StockAnalysisState				// 7
-	SocialState						// 8
-	CurrentStocksState				// 9
-	SearchStockState				// 10
-	StockDetailsState				// 11
-	SendFriReqState					// 12
-	ViewFriReqState					// 13
-	IncFriReqState					// 14
-	OutFriReqState					// 15
-	ViewPortfoliosState				// 16
-	CreatePortfolioState			// 17
-	ViewSpecPortfolioState			// 18
-	ViewHoldingsState				// 19
-	ViewTransactionsState			// 20
-	BuyStockSearchState				// 21
-	BuyStockState					// 22
-	ManageFriendsState				// 23
-		CreateStockListState			// 24
-	ViewStockListsState			// 25
-
+	HomePageState					// 3
+	PortfolioState					// 4
+	StockListState					// 5
+	StockAnalysisState				// 6
+	SocialState						// 7
+	CurrentStocksState				// 8
+	SearchStockState				// 9
+	StockDetailsState				// 10
+	SendFriReqState					// 11
+	ViewFriReqState					// 12
+	IncFriReqState					// 13
+	OutFriReqState					// 14
+	ViewPortfoliosState				// 15
+	CreatePortfolioState			// 16
+	ViewSpecPortfolioState			// 17
+	ViewHoldingsState				// 18
+	ViewTransactionsState			// 19
+	BuyStockSearchState				// 20
+	BuyStockState					// 21
+	ManageFriendsState				// 22
+	CreateStockListState			// 23
+	ViewStockListsState			// 24
 )
 
 // AppModel is the root model for the entire app
@@ -56,7 +54,6 @@ type AppModel struct {
 	mainMenu    		*shared.MainMenuModel
 	login       		*tuiauth.LoginModel
 	register    		*tuiauth.RegisterModel
-	configure   		*shared.ConfigureModel
 	homepage    		*shared.HomePageModel
 	portfolio			*portfolio.PortfolioModel
 	viewPortfolios		*portfolio.ViewPortfoliosModel
@@ -88,7 +85,6 @@ func NewAppModel() *AppModel {
 		mainMenu:  			shared.NewMainMenu(),
 		login:     			tuiauth.NewLogin(),
 		register:  			tuiauth.NewRegister(),
-		configure: 			shared.NewConfigure(),
 		homepage:  			shared.NewHomePage(nil),
 		portfolio: 			portfolio.NewPortfolioPage(),
 		viewPortfolios:		portfolio.NewViewPortfoliosPageWithUserID(0), // Will be set with actual user ID
@@ -149,9 +145,6 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "Register":
 					m.state = RegisterState
 					m.register = tuiauth.NewRegister()
-				case "Configure":
-					m.state = ConfigureState
-					m.configure = shared.NewConfigure()
 				case "Quit":
 					return m, tea.Quit
 				}
@@ -189,17 +182,6 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Go back to main view from register view
 		if m.register.BackPressed {
 			m.register.BackPressed = false
-			m.state = MainMenuState
-		}
-		return m, cmd
-
-	case ConfigureState:
-		configure, cmd := m.configure.Update(msg)
-		m.configure = configure.(*shared.ConfigureModel)
-
-		// Go back to home view from configure view
-		if m.configure.BackPressed {
-			m.configure.BackPressed = false
 			m.state = MainMenuState
 		}
 		return m, cmd
@@ -360,6 +342,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = HomePageState
 		}
 		return m, cmd
+
 	case CreateStockListState:
 		createStockList, cmd := m.createStockList.Update(msg)
 		m.createStockList = createStockList.(*stocklist.CreateStockListModel)
@@ -652,8 +635,6 @@ func (m *AppModel) View() string {
 		return m.login.View()
 	case RegisterState:
 		return m.register.View()
-	case ConfigureState:
-		return m.configure.View()
 	case HomePageState:
 		return m.homepage.View()
 	case PortfolioState:
