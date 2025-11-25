@@ -42,9 +42,11 @@ const (
 	ViewTransactionsState			// 19
 	BuyStockSearchState				// 20
 	BuyStockState					// 21
-	ManageFriendsState				// 22
-	CreateStockListState			// 23
-	ViewStockListsState			// 24
+	SellStockSearchState			// 22
+	SellStockState					// 23
+	ManageFriendsState				// 24
+	CreateStockListState			// 25
+	ViewStockListsState			// 26
 )
 
 // AppModel is the root model for the entire app
@@ -73,6 +75,8 @@ type AppModel struct {
 	viewTransactions	*portfolio.ViewTransactionsModel
 	buyStockSearch		*stock.BuyStockSearchModel
 	buyStock			*stock.BuyStockModel
+	sellStockSearch		*stock.SellStockSearchModel
+	sellStock			*stock.SellStockModel
 	manageFriends		*friends.ManageFriendsModel
 	createStockList		*stocklist.CreateStockListModel
 	viewMyStockList		*stocklist.ViewStockListsModel
@@ -104,6 +108,8 @@ func NewAppModel() *AppModel {
 		viewTransactions:	nil,
 		buyStockSearch:		nil,
 		buyStock:			nil,
+		sellStockSearch:	nil,
+		sellStock:			nil,
 		manageFriends:		friends.NewManageFriendsPage(nil),
 		createStockList:	stocklist.NewCreateStockListPage(nil),
 		viewMyStockList: 	stocklist.NewViewStockLists(nil),
@@ -295,6 +301,12 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cashAccount := m.viewSpecPortfolio.Portfolio.CashAccount
 				m.buyStockSearch = stock.NewBuyStockSearchPageWithPortfolio(userID, portfolioID, cashAccount)
 				return m, m.buyStockSearch.Init()
+			case "Sell Stock":
+				m.state = SellStockSearchState
+				userID := int(m.currentUser.UserID)
+				portfolioID := m.viewSpecPortfolio.PortfolioID
+				m.sellStockSearch = stock.NewSellStockSearchPageWithPortfolio(userID, portfolioID)
+				return m, m.sellStockSearch.Init()
 			}
 		}
 
@@ -612,6 +624,82 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, cmd
+	case SellStockSearchState:
+		sellStockSearch, cmd := m.sellStockSearch.Update(msg)
+		m.sellStockSearch = sellStockSearch.(*stock.SellStockSearchModel)
+
+		// Check if a stock was selected
+		if stockMsg, ok := msg.(stock.StockSelectedForSellMsg); ok {
+			m.state = SellStockState
+			userID := int(m.currentUser.UserID)
+			portfolioID := m.sellStockSearch.PortfolioID
+			m.sellStock = stock.NewSellStockPageWithHolding(userID, portfolioID, stockMsg.Holding)
+		}
+
+		// Go back to specific portfolio view from sell stock search
+		if m.sellStockSearch.BackPressed {
+			m.sellStockSearch.BackPressed = false
+			m.state = ViewSpecPortfolioState
+		}
+		return m, cmd
+	case SellStockState:
+		sellStock, cmd := m.sellStock.Update(msg)
+		m.sellStock = sellStock.(*stock.SellStockModel)
+
+		// Handle confirmed sale
+		if m.sellStock.Confirmed {
+			m.sellStock.Confirmed = false
+			// Execute the sell transaction asynchronously
+			return m, func() tea.Msg {
+				db := database.New()
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+
+				// Convert portfolioID from string to int
+				portfolioID := 0
+				fmt.Sscanf(m.sellStock.PortfolioID, "%d", &portfolioID)
+
+				err := db.SellStock(
+					ctx,
+					portfolioID,
+					m.sellStock.GetHolding().Symbol,
+					m.sellStock.GetQuantity(),
+					m.sellStock.GetHolding().Price,
+				)
+
+				if err != nil {
+					return stock.SellStockCompletedMsg{
+						Success: false,
+						Message: "✗ " + err.Error(),
+					}
+				}
+
+				return stock.SellStockCompletedMsg{
+					Success: true,
+					Message: "✓ Stock sale completed!",
+				}
+			}
+		}
+
+		// Handle sale completion message
+		if completedMsg, ok := msg.(stock.SellStockCompletedMsg); ok {
+			if completedMsg.Success {
+				// Sale successful, go back to portfolio view and refresh data
+				m.state = ViewSpecPortfolioState
+				return m, m.viewSpecPortfolio.RefreshPortfolio()
+			} else {
+				// Show error message in the sell stock page
+				m.sellStock.Error = completedMsg.Message
+			}
+		}
+
+		// Go back to stock search from sell stock page
+		if m.sellStock.BackPressed {
+			m.sellStock.BackPressed = false
+			m.state = SellStockSearchState
+		}
+
+		return m, cmd
 	case ManageFriendsState:
 		manageFriends, cmd := m.manageFriends.Update(msg)
 		m.manageFriends = manageFriends.(*friends.ManageFriendsModel)
@@ -621,7 +709,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = SocialState
 		}
 		return m, cmd
-		
+
 	}
 	return m, nil
 }
@@ -673,6 +761,10 @@ func (m *AppModel) View() string {
 		return m.buyStockSearch.View()
 	case BuyStockState:
 		return m.buyStock.View()
+	case SellStockSearchState:
+		return m.sellStockSearch.View()
+	case SellStockState:
+		return m.sellStock.View()
 	case ManageFriendsState:
 		return m.manageFriends.View()
 	case CreateStockListState:
