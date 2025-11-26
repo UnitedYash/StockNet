@@ -29,6 +29,9 @@ type Service interface {
 	// BuyStock executes a stock purchase transaction for a portfolio.
 	BuyStock(ctx context.Context, portfolioID int, symbol string, quantity int, price float64) error
 
+	// SellStock executes a stock sale transaction for a portfolio.
+	SellStock(ctx context.Context, portfolioID int, symbol string, quantity int, price float64) error
+
 	// GetHoldings retrieves all stock holdings for a specific portfolio.
 	// It returns a slice of holdings with current price information.
 	GetHoldings(ctx context.Context, portfolioID int) ([]interface{}, error)
@@ -129,12 +132,7 @@ func (s *service) GetDB() *sql.DB {
 	return s.db
 }
 
-// BuyStock executes a stock purchase transaction for a portfolio.
-// It:
-// 1. Validates the portfolio has enough cash
-// 2. Deducts the cost from the portfolio's cash account
-// 3. Adds/updates the stock holding in hasStockFromPortfolio
-// 4. Records the transaction in the transaction table
+
 func (s *service) BuyStock(ctx context.Context, portfolioID int, symbol string, quantity int, price float64) error {
 	// Start a transaction
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -199,24 +197,81 @@ func (s *service) BuyStock(ctx context.Context, portfolioID int, symbol string, 
 	return nil
 }
 
-// GetHoldings retrieves all stock holdings for a specific portfolio.
-// It queries the hasStockFromPortfolio table and joins with CurrentPrices
-// to get current price information for each holding.
-//
-// TODO: Implement this function to:
-// 1. Query the hasStockFromPortfolio table for the portfolio
-// 2. Join with CurrentPrices to get current price and timestamp
-// 3. Return holdings ordered by symbol
-//
-// Expected return format: Slice of holdings with fields: symbol, shares, price, timestamp
+func (s *service) SellStock(ctx context.Context, portfolioID int, symbol string, quantity int, price float64) error {
+	// Start a transaction
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Calculate total proceeds
+	totalProceeds := price * float64(quantity)
+
+	// Check if portfolio has enough shares of this stock
+	var shares int
+	err = tx.QueryRowContext(ctx,
+		"SELECT shares FROM hasStockFromPortfolio WHERE portfolio_id = $1 AND symbol = $2",
+		portfolioID, symbol,
+	).Scan(&shares)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("portfolio does not own this stock")
+		}
+		return fmt.Errorf("failed to fetch stock holding: %w", err)
+	}
+
+	if shares < quantity {
+		return fmt.Errorf("insufficient shares: trying to sell %d but only have %d", quantity, shares)
+	}
+
+	// Add to cash account
+	_, err = tx.ExecContext(ctx,
+		"UPDATE Portfolio SET cash_account = cash_account + $1 WHERE portfolio_id = $2",
+		totalProceeds, portfolioID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update portfolio cash: %w", err)
+	}
+
+	// Update or delete stock holding
+	newShares := shares - quantity
+	if newShares <= 0 {
+		// Delete the holding if no shares remain
+		_, err = tx.ExecContext(ctx,
+			"DELETE FROM hasStockFromPortfolio WHERE portfolio_id = $1 AND symbol = $2",
+			portfolioID, symbol,
+		)
+	} else {
+		// Update the holding
+		_, err = tx.ExecContext(ctx,
+			"UPDATE hasStockFromPortfolio SET shares = $1 WHERE portfolio_id = $2 AND symbol = $3",
+			newShares, portfolioID, symbol,
+		)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to update stock holding: %w", err)
+	}
+
+	// Record transaction
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO transaction (portfolio_id, time, amount, buy_sell_price, shares_moved, type, stock_symbol)
+		 VALUES ($1, NOW(), $2, $3, $4, 'SELL', $5)`,
+		portfolioID, totalProceeds, price, quantity, symbol,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to record transaction: %w", err)
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
 func (s *service) GetHoldings(ctx context.Context, portfolioID int) ([]interface{}, error) {
-	// TODO: Implement GetHoldings
-	// You may need to define a Holding type in the stock package
-	// Query structure:
-	// SELECT hsp.symbol, hsp.shares, cp.price, cp.timestamp
-	// FROM hasStockFromPortfolio hsp
-	// JOIN CurrentPrices cp ON hsp.symbol = cp.symbol
-	// WHERE hsp.portfolio_id = $1
-	// ORDER BY hsp.symbol
-	return nil, fmt.Errorf("GetHoldings not yet implemented")
+	// placeholder now
+	return nil, nil
 }
