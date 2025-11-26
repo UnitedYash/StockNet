@@ -32,9 +32,18 @@ type Service interface {
 	// SellStock executes a stock sale transaction for a portfolio.
 	SellStock(ctx context.Context, portfolioID int, symbol string, quantity int, price float64) error
 
+	// DepositCash adds cash to a portfolio.
+	DepositCash(ctx context.Context, portfolioID int, amount float64) error
+
+	// WithdrawCash removes cash from a portfolio.
+	WithdrawCash(ctx context.Context, portfolioID int, amount float64) error
+
 	// GetHoldings retrieves all stock holdings for a specific portfolio.
 	// It returns a slice of holdings with current price information.
 	GetHoldings(ctx context.Context, portfolioID int) ([]interface{}, error)
+
+	// AddStockData inserts stock price data into the stocks table and updates currentPrices if newer.
+	AddStockData(ctx context.Context, symbol string, date string, open, high, low, close float64, volume int) error
 }
 
 type service struct {
@@ -271,7 +280,108 @@ func (s *service) SellStock(ctx context.Context, portfolioID int, symbol string,
 	return nil
 }
 
+func (s *service) DepositCash(ctx context.Context, portfolioID int, amount float64) error {
+	if amount <= 0 {
+		return fmt.Errorf("deposit amount must be positive")
+	}
+
+	// Update portfolio cash account
+	_, err := s.db.ExecContext(ctx,
+		"UPDATE Portfolio SET cash_account = cash_account + $1 WHERE portfolio_id = $2",
+		amount, portfolioID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to deposit cash: %w", err)
+	}
+
+	return nil
+}
+
+func (s *service) WithdrawCash(ctx context.Context, portfolioID int, amount float64) error {
+	if amount <= 0 {
+		return fmt.Errorf("withdrawal amount must be positive")
+	}
+
+	// Check if portfolio has enough cash
+	var cashAccount float64
+	err := s.db.QueryRowContext(ctx,
+		"SELECT cash_account FROM Portfolio WHERE portfolio_id = $1",
+		portfolioID,
+	).Scan(&cashAccount)
+	if err != nil {
+		return fmt.Errorf("failed to fetch portfolio: %w", err)
+	}
+
+	if cashAccount < amount {
+		return fmt.Errorf("insufficient funds: trying to withdraw $%.2f but only have $%.2f", amount, cashAccount)
+	}
+
+	// Update portfolio cash account
+	_, err = s.db.ExecContext(ctx,
+		"UPDATE Portfolio SET cash_account = cash_account - $1 WHERE portfolio_id = $2",
+		amount, portfolioID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to withdraw cash: %w", err)
+	}
+
+	return nil
+}
+
 func (s *service) GetHoldings(ctx context.Context, portfolioID int) ([]interface{}, error) {
 	// placeholder now
 	return nil, nil
+}
+
+func (s *service) AddStockData(ctx context.Context, symbol string, date string, open, high, low, close float64, volume int) error {
+	// Start a transaction
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Insert into stocks table (historical data)
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO stocks (symbol, timestamp, open, high, low, close, volume)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 ON CONFLICT (symbol, timestamp) DO UPDATE
+		 SET open = $3, high = $4, low = $5, close = $6, volume = $7`,
+		symbol, date, open, high, low, close, volume,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert stock data: %w", err)
+	}
+
+	// Check if this date is more recent than currentPrices
+	var currentTimestamp string
+	err = tx.QueryRowContext(ctx,
+		"SELECT timestamp FROM CurrentPrices WHERE symbol = $1",
+		symbol,
+	).Scan(&currentTimestamp)
+
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("failed to fetch current price timestamp: %w", err)
+	}
+
+	// If no existing price or new date is more recent, update currentPrices
+	if err == sql.ErrNoRows || date > currentTimestamp {
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO CurrentPrices (symbol, price, timestamp)
+			 VALUES ($1, $2, $3)
+			 ON CONFLICT (symbol) DO UPDATE
+			 SET price = $2, timestamp = $3`,
+			symbol, close, date,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to update current prices: %w", err)
+		}
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }
