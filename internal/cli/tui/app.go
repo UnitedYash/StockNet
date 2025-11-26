@@ -52,6 +52,7 @@ const (
 	ViewStockListsState				// 29
 	SearchStockForDataState			// 30
 	AddStockDataState				// 31
+	ViewPortfolioStatisticsState		// 32
 )
 
 // AppModel is the root model for the entire app
@@ -90,6 +91,7 @@ type AppModel struct {
 	viewMyStockList		*stocklist.ViewStockListsModel
 	searchStockForData	*stock.SearchStockForDataModel
 	addStockData		*stock.AddStockDataModel
+	viewPortfolioStats	*portfolio.ViewPortfolioStatisticsModel
 }
 
 // NewAppModel creates a new app model
@@ -128,6 +130,7 @@ func NewAppModel() *AppModel {
 		viewMyStockList: 	stocklist.NewViewStockLists(nil),
 		searchStockForData:	stock.NewSearchStockForDataPage(),
 		addStockData:		nil,
+		viewPortfolioStats:	nil,
 	}
 }
 // returns intial command for the application to run
@@ -343,6 +346,12 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				portfolioID := m.viewSpecPortfolio.PortfolioID
 				m.viewNetWorth = portfolio.NewViewNetWorthPageWithPortfolioID(userID, portfolioID)
 				return m, m.viewNetWorth.Init()
+			case "View Statistics":
+				m.state = ViewPortfolioStatisticsState
+				userID := int(m.currentUser.UserID)
+				portfolioID := m.viewSpecPortfolio.PortfolioID
+				m.viewPortfolioStats = portfolio.NewViewPortfolioStatisticsPageWithPortfolioID(userID, portfolioID)
+				return m, m.viewPortfolioStats.Init()
 			}
 		}
 
@@ -485,6 +494,17 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					Message: fmt.Sprintf("Successfully added data for %s on %s", m.addStockData.Symbol, date),
 				}
 			}
+		}
+		return m, cmd
+
+	case ViewPortfolioStatisticsState:
+		viewPortfolioStats, cmd := m.viewPortfolioStats.Update(msg)
+		m.viewPortfolioStats = viewPortfolioStats.(*portfolio.ViewPortfolioStatisticsModel)
+
+		// Go back to specific portfolio view
+		if m.viewPortfolioStats.BackPressed {
+			m.viewPortfolioStats.BackPressed = false
+			m.state = ViewSpecPortfolioState
 		}
 		return m, cmd
 
@@ -1009,6 +1029,8 @@ func (m *AppModel) View() string {
 		return m.searchStockForData.View()
 	case AddStockDataState:
 		return m.addStockData.View()
+	case ViewPortfolioStatisticsState:
+		return m.viewPortfolioStats.View()
 	}
 	return ""
 }
