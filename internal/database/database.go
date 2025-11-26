@@ -573,7 +573,7 @@ func (s *service) GetCOV(ctx context.Context, portfolioID int, symbol, timeInter
 	return cov, nil
 }
 
-// GetBeta calculates correlation of a stock with all other stocks (market proxy)
+// GetBeta calculates correlation of a stock with all other stocks in stocks table
 func (s *service) GetBeta(ctx context.Context, portfolioID int, symbol, timeInterval string) (float64, error) {
 	// Get the latest date from portfolio data
 	latestDate, err := s.getLatestDateForPortfolio(ctx, portfolioID)
@@ -600,7 +600,7 @@ func (s *service) GetBeta(ctx context.Context, portfolioID int, symbol, timeInte
 	    AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
 	),
 	target_prices AS (
-	  SELECT timestamp, close FROM stock_data WHERE symbol = $2 ORDER BY timestamp
+	  SELECT timestamp, close FROM stock_data WHERE symbol = $2
 	),
 	other_prices AS (
 	  SELECT timestamp, AVG(close) as market_close FROM stock_data
@@ -611,9 +611,8 @@ func (s *service) GetBeta(ctx context.Context, portfolioID int, symbol, timeInte
 	  SELECT
 	    t.close as stock_close,
 	    o.market_close
-	  FROM (SELECT ROW_NUMBER() OVER (ORDER BY timestamp) as rn, close FROM target_prices) t
-	  JOIN (SELECT ROW_NUMBER() OVER (ORDER BY timestamp) as rn, market_close FROM other_prices) o
-	    ON t.rn = o.rn
+	  FROM target_prices t
+	  INNER JOIN other_prices o ON t.timestamp = o.timestamp
 	)
 	SELECT CASE
 	  WHEN STDDEV_POP(market_close) = 0 THEN 0
@@ -682,19 +681,17 @@ func (s *service) GetCorrelationMatrix(ctx context.Context, portfolioID int, tim
 			// Calculate correlation between s1 and s2
 			corrQuery := `
 			WITH prices1 AS (
-			  SELECT ROW_NUMBER() OVER (ORDER BY timestamp) as rn, close FROM Stocks
+			  SELECT timestamp, close FROM Stocks
 			  WHERE symbol = $1 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			  ORDER BY timestamp
 			),
 			prices2 AS (
-			  SELECT ROW_NUMBER() OVER (ORDER BY timestamp) as rn, close FROM Stocks
+			  SELECT timestamp, close FROM Stocks
 			  WHERE symbol = $2 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			  ORDER BY timestamp
 			),
 			aligned AS (
 			  SELECT p1.close as c1, p2.close as c2
 			  FROM prices1 p1
-			  INNER JOIN prices2 p2 ON p1.rn = p2.rn
+			  INNER JOIN prices2 p2 ON p1.timestamp = p2.timestamp
 			)
 			SELECT CASE
 			  WHEN STDDEV_POP(c1) = 0 OR STDDEV_POP(c2) = 0 THEN 0
@@ -760,19 +757,17 @@ func (s *service) GetCovarianceMatrix(ctx context.Context, portfolioID int, time
 			// Calculate covariance between s1 and s2
 			covQuery := `
 			WITH prices1 AS (
-			  SELECT ROW_NUMBER() OVER (ORDER BY timestamp) as rn, close FROM Stocks
+			  SELECT timestamp, close FROM Stocks
 			  WHERE symbol = $1 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			  ORDER BY timestamp
 			),
 			prices2 AS (
-			  SELECT ROW_NUMBER() OVER (ORDER BY timestamp) as rn, close FROM Stocks
+			  SELECT timestamp, close FROM Stocks
 			  WHERE symbol = $2 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			  ORDER BY timestamp
 			),
 			aligned AS (
 			  SELECT p1.close as c1, p2.close as c2
 			  FROM prices1 p1
-			  INNER JOIN prices2 p2 ON p1.rn = p2.rn
+			  INNER JOIN prices2 p2 ON p1.timestamp = p2.timestamp
 			)
 			SELECT COVAR_POP(c1, c2) as covariance
 			FROM aligned`
