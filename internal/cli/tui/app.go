@@ -61,6 +61,7 @@ const (
 	ViewPortfolioStatisticsState	// 32
 	DisplayStockListState			// 33
 	EditStockListState				// 34
+	HoldingDetailsState				// 35
 )
 
 // AppModel is the root model for the entire app
@@ -102,6 +103,7 @@ type AppModel struct {
 	addStockData		*stock.AddStockDataModel
 	viewPortfolioStats	*portfolio.ViewPortfolioStatisticsModel
 	editStockList		*stocklist.EditStockListModel
+	holdingDetails		*portfolio.HoldingDetailsModel
 }
 
 // NewAppModel creates a new app model
@@ -565,6 +567,17 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, cmd
 
+	case HoldingDetailsState:
+		holdingDetails, cmd := m.holdingDetails.Update(msg)
+		m.holdingDetails = holdingDetails.(*portfolio.HoldingDetailsModel)
+
+		// Go back to view holdings
+		if m.holdingDetails.BackPressed {
+			m.holdingDetails.BackPressed = false
+			m.state = ViewHoldingsState
+		}
+		return m, cmd
+
 	case StockAnalysisState:
 		stockAnalysis, cmd := m.stockAnalysis.Update(msg)
 		m.stockAnalysis = stockAnalysis.(*stock.StockAnalysisModel)
@@ -718,6 +731,20 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ViewHoldingsState:
 		viewHoldings, cmd := m.viewHoldings.Update(msg)
 		m.viewHoldings = viewHoldings.(*stock.ViewHoldingsModel)
+
+		// View details of selected holding
+		if m.viewHoldings.ViewDetailsPressed {
+			m.viewHoldings.ViewDetailsPressed = false
+			holding := m.viewHoldings.GetSelectedHolding()
+			m.state = HoldingDetailsState
+			m.holdingDetails = portfolio.NewHoldingDetailsPage(
+				m.viewHoldings.PortfolioID,
+				holding.Symbol,
+				holding.Shares,
+				holding.Price,
+			)
+			return m, m.holdingDetails.Init()
+		}
 
 		// Go back to specific portfolio view from view holdings
 		if m.viewHoldings.BackPressed {
@@ -1092,6 +1119,8 @@ func (m *AppModel) View() string {
 		return m.displayStockList.View()
 	case EditStockListState:
 		return m.editStockList.View()
+	case HoldingDetailsState:
+		return m.holdingDetails.View()
 	}
 	return ""
 }
