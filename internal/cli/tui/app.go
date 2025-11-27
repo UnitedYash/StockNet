@@ -63,49 +63,51 @@ const (
 	EditStockListState				// 34
 	AddStockToListState				// 35
 	DeleteStockFromListState		// 36
+	ViewListHoldingsState			// 37
 )
 
 // AppModel is the root model for the entire app
 type AppModel struct {
-	state        		AppState
-	currentUser 		auth.User // currently logged-in user
-	mainMenu    		*shared.MainMenuModel
-	login       		*tuiauth.LoginModel
-	register    		*tuiauth.RegisterModel
-	homepage    		*shared.HomePageModel
-	portfolio			*portfolio.PortfolioModel
-	viewPortfolios		*portfolio.ViewPortfoliosModel
-	createPortfolio		*portfolio.CreatePortfolioModel
-	stockList			*stocklist.StockListModel
-	stockAnalysis 		*stock.StockAnalysisModel
-	social				*shared.SocialModel
-	currentStocks		*stock.CurrentStocksModel
-	searchStock			*stock.SearchStockModel
-	stockDetails		*stock.StockDetailsModel
-	sendFriReq			*friends.SendFriReqModel
-	viewFriReq			*friends.ViewFriReqModel
-	incFriReq			*friends.IncFriReqModel
-	outFriReq 			*friends.OutFriReqModel
-	viewSpecPortfolio	*portfolio.ViewSpecPortfolioModel
-	viewHoldings		*stock.ViewHoldingsModel
-	viewTransactions	*portfolio.ViewTransactionsModel
-	buyStockSearch		*stock.BuyStockSearchModel
-	buyStock			*stock.BuyStockModel
-	sellStockSearch		*stock.SellStockSearchModel
-	sellStock			*stock.SellStockModel
-	depositCash			*portfolio.DepositCashModel
-	withdrawCash		*portfolio.WithdrawCashModel
-	viewNetWorth		*portfolio.ViewNetWorthModel
-	manageFriends		*friends.ManageFriendsModel
-	createStockList		*stocklist.CreateStockListModel
-	viewMyStockList		*stocklist.ViewStockListsModel
-	displayStockList	*stocklist.DisplayStockListModel
-	searchStockForData	*stock.SearchStockForDataModel
-	addStockData		*stock.AddStockDataModel
-	viewPortfolioStats	*portfolio.ViewPortfolioStatisticsModel
-	editStockList		*stocklist.EditStockListModel
-	addStockToList		*stocklist.AddStockToListModel
-	deleteStockFromList *stocklist.DeleteStockFromList
+	state        			AppState
+	currentUser 			auth.User // currently logged-in user
+	mainMenu    			*shared.MainMenuModel
+	login       			*tuiauth.LoginModel
+	register    			*tuiauth.RegisterModel
+	homepage    			*shared.HomePageModel
+	portfolio				*portfolio.PortfolioModel
+	viewPortfolios			*portfolio.ViewPortfoliosModel
+	createPortfolio			*portfolio.CreatePortfolioModel
+	stockList				*stocklist.StockListModel
+	stockAnalysis	 		*stock.StockAnalysisModel
+	social					*shared.SocialModel
+	currentStocks			*stock.CurrentStocksModel
+	searchStock				*stock.SearchStockModel
+	stockDetails			*stock.StockDetailsModel
+	sendFriReq				*friends.SendFriReqModel
+	viewFriReq				*friends.ViewFriReqModel
+	incFriReq				*friends.IncFriReqModel
+	outFriReq 				*friends.OutFriReqModel
+	viewSpecPortfolio		*portfolio.ViewSpecPortfolioModel
+	viewHoldings			*stock.ViewHoldingsModel
+	viewTransactions		*portfolio.ViewTransactionsModel
+	buyStockSearch			*stock.BuyStockSearchModel
+	buyStock				*stock.BuyStockModel
+	sellStockSearch			*stock.SellStockSearchModel
+	sellStock				*stock.SellStockModel
+	depositCash				*portfolio.DepositCashModel
+	withdrawCash			*portfolio.WithdrawCashModel
+	viewNetWorth			*portfolio.ViewNetWorthModel
+	manageFriends			*friends.ManageFriendsModel
+	createStockList			*stocklist.CreateStockListModel
+	viewMyStockList			*stocklist.ViewStockListsModel
+	displayStockList		*stocklist.DisplayStockListModel
+	searchStockForData		*stock.SearchStockForDataModel
+	addStockData			*stock.AddStockDataModel
+	viewPortfolioStats		*portfolio.ViewPortfolioStatisticsModel
+	editStockList			*stocklist.EditStockListModel
+	addStockToList			*stocklist.AddStockToListModel
+	deleteStockFromList 	*stocklist.DeleteStockFromList
+	viewListHoldings 		*stocklist.ViewListHoldingsModel
 }
 
 // NewAppModel creates a new app model
@@ -149,8 +151,7 @@ func NewAppModel() *AppModel {
 		editStockList:			stocklist.NewEditStockListPage(DefaultStockList, nil),
 		addStockToList:			stocklist.NewAddStockToListPage(DefaultStockList, nil),
 		deleteStockFromList:	stocklist.NewDeleteStockFromListPage(DefaultStockList, nil),
-
-
+		viewListHoldings:		stocklist.NewViewListHoldingsPage(DefaultStockList, nil),
 	}
 }
 // returns intial command for the application to run
@@ -471,8 +472,21 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "Edit List":
 					m.state = EditStockListState
 					m.editStockList = stocklist.NewEditStockListPage(m.displayStockList.StockList, m.stockList.GetUser())
+				case "View Stocks":
+					m.state = ViewListHoldingsState
+					m.viewListHoldings = stocklist.NewViewListHoldingsPage(m.displayStockList.StockList, m.stockList.GetUser())
+					cmd = m.viewListHoldings.Init()
 				}
 			}
+		}
+		return m, cmd
+	case ViewListHoldingsState:
+		viewListHoldings, cmd := m.viewListHoldings.Update(msg)
+		m.viewListHoldings = viewListHoldings.(*stocklist.ViewListHoldingsModel)
+		// Go back to display stock list page from view stock holdings page
+		if m.viewListHoldings.BackPressed {
+			m.viewListHoldings.BackPressed = false
+			m.state = DisplayStockListState
 		}
 		return m, cmd
 	case EditStockListState:
@@ -495,7 +509,6 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = DeleteStockFromListState
 					m.deleteStockFromList = stocklist.NewDeleteStockFromListPage(m.editStockList.StockList, m.stockList.GetUser())
 					cmd = m.deleteStockFromList.Init()
-
 				}
 			}
 		}
@@ -1139,6 +1152,8 @@ func (m *AppModel) View() string {
 		return m.addStockToList.View()
 	case DeleteStockFromListState:
 		return m.deleteStockFromList.View()
+	case ViewListHoldingsState:
+		return m.viewListHoldings.View()
 	}
 	return ""
 }
