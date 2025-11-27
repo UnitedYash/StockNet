@@ -74,7 +74,7 @@ func (m *EditStockListModel) View() string {
 			s += fmt.Sprintf("%s\n", styles.UnselectedStyle.Render("  "+option))
 		}
 	}
-	s += styles.FooterStyle.Render("↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("Enter to select • ↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
 

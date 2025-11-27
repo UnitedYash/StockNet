@@ -19,6 +19,12 @@ import (
 // AppState represents different screens in the app
 type AppState int
 
+var DefaultStockList = stocklist.StockList{
+	StockListID: -1,
+	Name:        "Loading...",
+	Visibility:  "Private",
+}
+
 const (
 	MainMenuState AppState = iota 	// 0
 	LoginState						// 1
@@ -132,27 +138,11 @@ func NewAppModel() *AppModel {
 		manageFriends:		friends.NewManageFriendsPage(nil),
 		createStockList:	stocklist.NewCreateStockListPage(nil),
 		viewMyStockList: 	stocklist.NewViewStockLists(nil),
-		displayStockList: 	stocklist.NewDisplayStockListPage(
-			// a default stocklist
-    		stocklist.StockList{
-        		StockListID: -1,
-        		Name:        "Loading...",
-        		Visibility:  "Private",
-    		},
-    		nil,
-    		0,
-		),
+		displayStockList: 	stocklist.NewDisplayStockListPage(DefaultStockList, nil, 0),
 		searchStockForData:	stock.NewSearchStockForDataPage(),
 		addStockData:		nil,
 		viewPortfolioStats:	nil,
-		editStockList:		stocklist.NewEditStockListPage(
-			stocklist.StockList{
-        		StockListID: -1,
-        		Name:        "Loading...",
-        		Visibility:  "Private",
-    		},
-			nil,
-		), 
+		editStockList:		stocklist.NewEditStockListPage(DefaultStockList, nil), 
 	}
 }
 // returns intial command for the application to run
