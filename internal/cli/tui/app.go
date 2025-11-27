@@ -668,6 +668,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.currentStocks.BackPressed = false
 			m.state = StockAnalysisState
 			m.stockAnalysis = stock.NewStockAnalysisPage()
+			return m, m.stockAnalysis.Init()
 		}
 		return m, cmd
 	case SearchStockState:
