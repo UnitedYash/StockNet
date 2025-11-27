@@ -44,8 +44,9 @@ const (
 	BuyStockSearchState				// 21
 	BuyStockState					// 22
 	ManageFriendsState				// 23
-		CreateStockListState			// 24
-	ViewStockListsState			// 25
+	CreateStockListState			// 24
+	ViewStockListsState				// 25
+	DisplayStockListState			// 26
 
 )
 
@@ -79,6 +80,7 @@ type AppModel struct {
 	manageFriends		*friends.ManageFriendsModel
 	createStockList		*stocklist.CreateStockListModel
 	viewMyStockList		*stocklist.ViewStockListsModel
+	displayStockList	*stocklist.DisplayStockListModel
 }
 
 // NewAppModel creates a new app model
@@ -92,7 +94,7 @@ func NewAppModel() *AppModel {
 		homepage:  			shared.NewHomePage(nil),
 		portfolio: 			portfolio.NewPortfolioPage(),
 		viewPortfolios:		portfolio.NewViewPortfoliosPageWithUserID(0), // Will be set with actual user ID
-		createPortfolio:		portfolio.NewCreatePortfolioPageWithUserID(0), // Will be set with actual user ID
+		createPortfolio:	portfolio.NewCreatePortfolioPageWithUserID(0), // Will be set with actual user ID
 		stockList: 			stocklist.NewStockListPage(nil),
 		stockAnalysis: 		stock.NewStockAnalysisPage(),
 		social:				shared.NewSocialPage(nil),
@@ -111,6 +113,16 @@ func NewAppModel() *AppModel {
 		manageFriends:		friends.NewManageFriendsPage(nil),
 		createStockList:	stocklist.NewCreateStockListPage(nil),
 		viewMyStockList: 	stocklist.NewViewStockLists(nil),
+		displayStockList: stocklist.NewDisplayStockListPage(
+			// a default stocklist
+    		stocklist.StockList{
+        		StockListID: -1,
+        		Name:        "Loading...",
+        		Visibility:  "Private",
+    		},
+    		nil,  // no current user yet
+    		0,
+		),
 	}
 }
 // returns intial command for the application to run
