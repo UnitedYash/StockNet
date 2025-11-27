@@ -23,6 +23,7 @@ type ViewStockListsModel struct {
     BackPressed bool
     Error       string
 	User        *auth.User
+	Confirmed	bool
 }
 
 type stockListsLoadedMsg struct { stockLists []StockList }
@@ -37,6 +38,7 @@ func NewViewStockLists(user *auth.User) *ViewStockListsModel {
 		Loading:       	true,
 		BackPressed:   	false,
 		User: 			user,
+		Confirmed:		false,
 	}
 }
 
@@ -104,10 +106,7 @@ func (m *ViewStockListsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			if (len(m.StockLists) > 0) {
-				selectedStockList := m.StockLists[m.Selected]
-				return m, func() tea.Msg {
-					return stockListSelectedMsg{StockList: selectedStockList}
-				}
+				m.Confirmed = true
 			}
 		case "ctrl+b", "esc":
 			m.BackPressed = true
@@ -144,4 +143,9 @@ func (m *ViewStockListsModel) View() string {
 	s += "\n"
 	s += styles.FooterStyle.Render("↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
+}
+
+// returns (logged in) user
+func (m *ViewStockListsModel) GetUser() *auth.User {
+	return m.User
 }

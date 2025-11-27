@@ -18,6 +18,7 @@ func NewMainMenu() *MainMenuModel {
 		Options: []string{
 			"Login",
 			"Register",
+			"Add Stock Data",
 			"Quit",
 		},
 		Selected: 0,
