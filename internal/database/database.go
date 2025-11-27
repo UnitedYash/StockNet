@@ -805,7 +805,7 @@ func (s *service) GetPricePredictions(ctx context.Context, symbol string, daysAh
 		return nil, fmt.Errorf("no data found for symbol: %s", symbol)
 	}
 
-	// Get historical prices, using last 60 days of data for better trend sensitivity
+	// Get historical prices, using last 60 days of data
 	startDate := latestDate.AddDate(0, 0, -60)
 	query := `
 	SELECT timestamp, close FROM Stocks
@@ -835,7 +835,7 @@ func (s *service) GetPricePredictions(ctx context.Context, symbol string, daysAh
 		}{date, price})
 	}
 
-	// Need at least 2 points for linear regression
+	// check at least 2 points for lin regression
 	if len(historicalData) < 2 {
 		return nil, fmt.Errorf("insufficient historical data for prediction")
 	}
