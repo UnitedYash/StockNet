@@ -22,8 +22,8 @@ func NewEditStockListPage(stockList StockList, user *auth.User) *EditStockListMo
 	return &EditStockListModel{
 		User: user,
 		Options: []string{
-			"Add Stock",
-			"Update Shares",
+			"Add/Update Stock",
+			"Delete Stock",
 		},
 		Selected: 	0,
 		StockList:	stockList,

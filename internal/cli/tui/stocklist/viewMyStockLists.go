@@ -141,7 +141,7 @@ func (m *ViewStockListsModel) View() string {
 	}
 
 	s += "\n"
-	s += styles.FooterStyle.Render("↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("Press enter to select • ↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
 
