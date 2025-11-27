@@ -16,6 +16,7 @@ type DisplayStockListModel struct {
 	User        	*auth.User	
 	OwnerUserID 	uint32
 	Options			[]string
+	Confirmed		bool
 }
 
 // returns initial displaying  list model
@@ -65,6 +66,8 @@ func (m *DisplayStockListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// at last option so wrap around to the top
 				m.Selected = 0
 			}
+		case "enter":
+			m.Confirmed = true
 		}
 	}
 	return m, nil

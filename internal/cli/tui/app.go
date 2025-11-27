@@ -54,6 +54,7 @@ const (
 	AddStockDataState				// 31
 	ViewPortfolioStatisticsState	// 32
 	DisplayStockListState			// 33
+	EditStockListState				// 34
 )
 
 // AppModel is the root model for the entire app
@@ -94,6 +95,7 @@ type AppModel struct {
 	searchStockForData	*stock.SearchStockForDataModel
 	addStockData		*stock.AddStockDataModel
 	viewPortfolioStats	*portfolio.ViewPortfolioStatisticsModel
+	editStockList		*stocklist.EditStockListModel
 }
 
 // NewAppModel creates a new app model
@@ -143,6 +145,14 @@ func NewAppModel() *AppModel {
 		searchStockForData:	stock.NewSearchStockForDataPage(),
 		addStockData:		nil,
 		viewPortfolioStats:	nil,
+		editStockList:		stocklist.NewEditStockListPage(
+			stocklist.StockList{
+        		StockListID: -1,
+        		Name:        "Loading...",
+        		Visibility:  "Private",
+    		},
+			nil,
+		), 
 	}
 }
 // returns intial command for the application to run
@@ -455,7 +465,28 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.displayStockList.BackPressed = false
 			m.state = StockListState
 		}
+		if m.displayStockList.Selected >= 0 && m.displayStockList.Selected < len(m.displayStockList.Options) {
+			option := m.displayStockList.Options[m.displayStockList.Selected]
+			if m.displayStockList.Confirmed {
+				m.displayStockList.Confirmed = false
+				switch option {
+				case "Edit List":
+					m.state = EditStockListState
+					m.editStockList = stocklist.NewEditStockListPage(m.displayStockList.StockList, m.stockList.GetUser())
+				}
+			}
+		}
 		return m, cmd
+	case EditStockListState:
+		editStockList, cmd := m.editStockList.Update(msg)
+		m.editStockList = editStockList.(*stocklist.EditStockListModel)
+		// Go back to display stock list page from edit stock list page
+		if m.editStockList.BackPressed {
+			m.editStockList.BackPressed = false
+			m.state = DisplayStockListState
+		}
+		return m, cmd
+
 	case SearchStockForDataState:
 		searchStockForData, cmd := m.searchStockForData.Update(msg)
 		m.searchStockForData = searchStockForData.(*stock.SearchStockForDataModel)
@@ -1069,6 +1100,8 @@ func (m *AppModel) View() string {
 		return m.viewPortfolioStats.View()
 	case DisplayStockListState:
 		return m.displayStockList.View()
+	case EditStockListState:
+		return m.editStockList.View()
 	}
 	return ""
 }
