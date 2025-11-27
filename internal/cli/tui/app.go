@@ -62,6 +62,7 @@ const (
 	DisplayStockListState			// 33
 	EditStockListState				// 34
 	HoldingDetailsState				// 35
+	HoldingForecastState			// 36
 )
 
 // AppModel is the root model for the entire app
@@ -104,6 +105,7 @@ type AppModel struct {
 	viewPortfolioStats	*portfolio.ViewPortfolioStatisticsModel
 	editStockList		*stocklist.EditStockListModel
 	holdingDetails		*portfolio.HoldingDetailsModel
+	holdingForecast		*portfolio.HoldingForecastModel
 }
 
 // NewAppModel creates a new app model
@@ -571,10 +573,32 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		holdingDetails, cmd := m.holdingDetails.Update(msg)
 		m.holdingDetails = holdingDetails.(*portfolio.HoldingDetailsModel)
 
+		// View forecast of selected holding
+		if m.holdingDetails.ViewForecastPressed {
+			m.holdingDetails.ViewForecastPressed = false
+			m.state = HoldingForecastState
+			m.holdingForecast = portfolio.NewHoldingForecastPage(
+				m.holdingDetails.Symbol,
+				m.holdingDetails.CurrentPrice,
+			)
+			return m, m.holdingForecast.Init()
+		}
+
 		// Go back to view holdings
 		if m.holdingDetails.BackPressed {
 			m.holdingDetails.BackPressed = false
 			m.state = ViewHoldingsState
+		}
+		return m, cmd
+
+	case HoldingForecastState:
+		holdingForecast, cmd := m.holdingForecast.Update(msg)
+		m.holdingForecast = holdingForecast.(*portfolio.HoldingForecastModel)
+
+		// Go back to holding details
+		if m.holdingForecast.BackPressed {
+			m.holdingForecast.BackPressed = false
+			m.state = HoldingDetailsState
 		}
 		return m, cmd
 
@@ -1121,6 +1145,8 @@ func (m *AppModel) View() string {
 		return m.editStockList.View()
 	case HoldingDetailsState:
 		return m.holdingDetails.View()
+	case HoldingForecastState:
+		return m.holdingForecast.View()
 	}
 	return ""
 }

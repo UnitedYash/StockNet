@@ -24,16 +24,17 @@ type HoldingHistoricalPrice struct {
 
 // Model for holding details page with historical chart
 type HoldingDetailsModel struct {
-	PortfolioID   string
-	Symbol        string
-	Shares        int
-	CurrentPrice  float64
-	TimeRange     string                // week, month, quarter, year, 5years
-	SelectedRange int                   // Index of selected time range
-	BackPressed   bool
-	loading       bool
-	prices        []HoldingHistoricalPrice
-	error         string
+	PortfolioID      string
+	Symbol           string
+	Shares           int
+	CurrentPrice     float64
+	TimeRange        string                // week, month, quarter, year, 5years
+	SelectedRange    int                   // Index of selected time range
+	BackPressed      bool
+	ViewForecastPressed bool
+	loading          bool
+	prices           []HoldingHistoricalPrice
+	error            string
 }
 
 type holdingHistoricalPricesLoadedMsg struct {
@@ -93,9 +94,9 @@ func (m *HoldingDetailsModel) Init() tea.Cmd {
 		// Calculate the start date based on the max date minus days
 		startDate := maxDate.AddDate(0, 0, -days)
 
-		query := `SELECT timestamp, open, high, low, close, volume
+		query := `SELECT timestamp, close
 		          FROM Stocks
-		          WHERE symbol = $1 AND timestamp >= $2
+		          WHERE symbol = $1 AND timestamp >= $2 AND close IS NOT NULL
 		          ORDER BY timestamp ASC`
 
 		rows, err := db.Query(query, m.Symbol, startDate)
@@ -107,7 +108,7 @@ func (m *HoldingDetailsModel) Init() tea.Cmd {
 		var prices []HoldingHistoricalPrice
 		for rows.Next() {
 			var p HoldingHistoricalPrice
-			if err := rows.Scan(&p.Date, &p.Open, &p.High, &p.Low, &p.Close, &p.Volume); err != nil {
+			if err := rows.Scan(&p.Date, &p.Close); err != nil {
 				return holdingHistoricalPricesErrorMsg{err: err}
 			}
 			prices = append(prices, p)
@@ -142,6 +143,9 @@ func (m *HoldingDetailsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.loading = true
 				return m, m.Init()
 			}
+		case "f":
+			// View forecast
+			m.ViewForecastPressed = true
 		case "ctrl+b", "esc":
 			m.BackPressed = true
 		}
@@ -198,7 +202,7 @@ func (m *HoldingDetailsModel) View() string {
 	}
 
 	s += "\n"
-	s += styles.FooterStyle.Render("← / → or h/l to change range • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("← / → or h/l to change range • 'f' for forecast • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
 

@@ -60,6 +60,14 @@ type Service interface {
 	GetCorrelationMatrix(ctx context.Context, portfolioID int, timeInterval string) (map[string]map[string]float64, error)
 	// Returns covariance matrix for all stocks in portfolio over a time interval
 	GetCovarianceMatrix(ctx context.Context, portfolioID int, timeInterval string) (map[string]map[string]float64, error)
+	// Returns predicted future prices for a stock using linear regression
+	GetPricePredictions(ctx context.Context, symbol string, daysAhead int) ([]PricePrediction, error)
+}
+
+// PricePrediction represents a predicted price point
+type PricePrediction struct {
+	Date  time.Time
+	Price float64
 }
 
 type service struct {
@@ -783,4 +791,92 @@ func (s *service) GetCovarianceMatrix(ctx context.Context, portfolioID int, time
 	}
 
 	return matrix, nil
+}
+
+// GetPricePredictions uses linear regression to predict future prices
+func (s *service) GetPricePredictions(ctx context.Context, symbol string, daysAhead int) ([]PricePrediction, error) {
+	// Get the latest date for the symbol
+	var latestDate *time.Time
+	err := s.db.QueryRowContext(ctx, "SELECT MAX(timestamp) FROM Stocks WHERE symbol = $1", symbol).Scan(&latestDate)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to get latest date: %w", err)
+	}
+	if latestDate == nil {
+		return nil, fmt.Errorf("no data found for symbol: %s", symbol)
+	}
+
+	// Get historical prices, using last 60 days of data for better trend sensitivity
+	startDate := latestDate.AddDate(0, 0, -60)
+	query := `
+	SELECT timestamp, close FROM Stocks
+	WHERE symbol = $1 AND timestamp >= $2 AND timestamp <= $3
+	ORDER BY timestamp ASC`
+
+	rows, err := s.db.QueryContext(ctx, query, symbol, startDate, latestDate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch historical prices: %w", err)
+	}
+	defer rows.Close()
+
+	var historicalData []struct {
+		date  time.Time
+		price float64
+	}
+
+	for rows.Next() {
+		var date time.Time
+		var price float64
+		if err := rows.Scan(&date, &price); err != nil {
+			return nil, err
+		}
+		historicalData = append(historicalData, struct {
+			date  time.Time
+			price float64
+		}{date, price})
+	}
+
+	// Need at least 2 points for linear regression
+	if len(historicalData) < 2 {
+		return nil, fmt.Errorf("insufficient historical data for prediction")
+	}
+
+	// Simple linear regression: y = a + bx
+	// Where x is day index, y is price
+	n := float64(len(historicalData))
+	var sumX, sumY, sumXY, sumX2 float64
+
+	for i, point := range historicalData {
+		x := float64(i)
+		y := point.price
+		sumX += x
+		sumY += y
+		sumXY += x * y
+		sumX2 += x * x
+	}
+
+	// Calculate slope (b) and intercept (a)
+	denominator := n*sumX2 - sumX*sumX
+	if denominator == 0 {
+		return nil, fmt.Errorf("cannot calculate regression: insufficient price variance")
+	}
+	slope := (n*sumXY - sumX*sumY) / denominator
+	intercept := (sumY - slope*sumX) / n
+
+	// Generate predictions for future days
+	var predictions []PricePrediction
+	lastDate := historicalData[len(historicalData)-1].date
+	lastIndex := float64(len(historicalData) - 1)
+
+	for i := 1; i <= daysAhead; i++ {
+		futureX := lastIndex + float64(i)
+		predictedPrice := intercept + slope*futureX
+		futureDate := lastDate.AddDate(0, 0, i)
+
+		predictions = append(predictions, PricePrediction{
+			Date:  futureDate,
+			Price: predictedPrice,
+		})
+	}
+
+	return predictions, nil
 }
