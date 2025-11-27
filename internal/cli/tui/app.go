@@ -61,6 +61,7 @@ const (
 	ViewPortfolioStatisticsState	// 32
 	DisplayStockListState			// 33
 	EditStockListState				// 34
+	AddStockToListState				// 35
 )
 
 // AppModel is the root model for the entire app
@@ -102,6 +103,7 @@ type AppModel struct {
 	addStockData		*stock.AddStockDataModel
 	viewPortfolioStats	*portfolio.ViewPortfolioStatisticsModel
 	editStockList		*stocklist.EditStockListModel
+	addStockToList		*stocklist.AddStockToListModel
 }
 
 // NewAppModel creates a new app model
@@ -142,7 +144,10 @@ func NewAppModel() *AppModel {
 		searchStockForData:	stock.NewSearchStockForDataPage(),
 		addStockData:		nil,
 		viewPortfolioStats:	nil,
-		editStockList:		stocklist.NewEditStockListPage(DefaultStockList, nil), 
+		editStockList:		stocklist.NewEditStockListPage(DefaultStockList, nil),
+		addStockToList:		stocklist.NewAddStockToListPage(DefaultStockList, nil),
+
+
 	}
 }
 // returns intial command for the application to run
@@ -474,6 +479,26 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.editStockList.BackPressed {
 			m.editStockList.BackPressed = false
 			m.state = DisplayStockListState
+		}
+		if m.editStockList.Selected >= 0 && m.editStockList.Selected < len(m.editStockList.Options) {
+			option := m.editStockList.Options[m.editStockList.Selected]
+			if m.editStockList.Confirmed {
+				m.editStockList.Confirmed = false
+				switch option {
+				case "Add Stock":
+					m.state = AddStockToListState
+					m.addStockToList = stocklist.NewAddStockToListPage(m.editStockList.StockList, m.stockList.GetUser())
+				}
+			}
+		}
+		return m, cmd
+	case AddStockToListState:
+		addStockToList, cmd := m.addStockToList.Update(msg)
+		m.addStockToList = addStockToList.(*stocklist.AddStockToListModel)
+		// Go back to edit stock list page from add stock to stocklist page
+		if m.addStockToList.BackPressed {
+			m.addStockToList.BackPressed = false
+			m.state = EditStockListState
 		}
 		return m, cmd
 
@@ -1092,6 +1117,8 @@ func (m *AppModel) View() string {
 		return m.displayStockList.View()
 	case EditStockListState:
 		return m.editStockList.View()
+	case AddStockToListState:
+		return m.addStockToList.View()
 	}
 	return ""
 }
