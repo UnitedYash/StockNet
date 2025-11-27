@@ -4,7 +4,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"StockNet/internal/cli/tui/styles"
 	"StockNet/internal/auth"
-
+	"fmt"
 )
 
 // Model for a displaying stocklist
@@ -14,12 +14,12 @@ type DisplayStockListModel struct {
     BackPressed 	bool
     Error       	string
 	User        	*auth.User	
-	OwnerUserID 	int
+	OwnerUserID 	uint32
 	Options			[]string
 }
 
 // returns initial displaying  list model
-func NewDisplayStockListPage(stockList StockList, user *auth.User, OwnerID) *DisplayStockListModel {
+func NewDisplayStockListPage(stockList StockList, user *auth.User, OwnerID uint32) *DisplayStockListModel {
 	model := &DisplayStockListModel{
 		StockList:		stockList,
 		Selected:		0,
@@ -29,7 +29,7 @@ func NewDisplayStockListPage(stockList StockList, user *auth.User, OwnerID) *Dis
 		OwnerUserID:	OwnerID,
 	}
 	// if the current user is the owner of the stocklist, give edit and delete options
-	if user != nil && user.UserID == OwnerUserID {
+	if user != nil && user.UserID == OwnerID {
 		model.Options = []string{"View Stocks", "Edit List", "View Statistics", "Reviews", "Share", "Delete List"}
 	} else {
 		model.Options = []string{"View Stocks", "View Statistics", "Reviews", "Share"}
@@ -70,7 +70,7 @@ func (m *DisplayStockListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *SocialModel) View() string {
+func (m *DisplayStockListModel) View() string {
 
 	s := "\n"
 	s += styles.TitleStyle.Render("📃 " + m.StockList.Name + " Stock List") + "\n\n"

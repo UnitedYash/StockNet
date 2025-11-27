@@ -23,31 +23,37 @@ const (
 	MainMenuState AppState = iota 	// 0
 	LoginState						// 1
 	RegisterState					// 2
-	ConfigureState					// 3
-	HomePageState					// 4
-	PortfolioState					// 5
-	StockListState					// 6
-	StockAnalysisState				// 7
-	SocialState						// 8
-	CurrentStocksState				// 9
-	SearchStockState				// 10
-	StockDetailsState				// 11
-	SendFriReqState					// 12
-	ViewFriReqState					// 13
-	IncFriReqState					// 14
-	OutFriReqState					// 15
-	ViewPortfoliosState				// 16
-	CreatePortfolioState			// 17
-	ViewSpecPortfolioState			// 18
-	ViewHoldingsState				// 19
-	ViewTransactionsState			// 20
-	BuyStockSearchState				// 21
-	BuyStockState					// 22
-	ManageFriendsState				// 23
-	CreateStockListState			// 24
-	ViewStockListsState				// 25
-	DisplayStockListState			// 26
-
+	HomePageState					// 3
+	PortfolioState					// 4
+	StockListState					// 5
+	StockAnalysisState				// 6
+	SocialState						// 7
+	CurrentStocksState				// 8
+	SearchStockState				// 9
+	StockDetailsState				// 10
+	SendFriReqState					// 11
+	ViewFriReqState					// 12
+	IncFriReqState					// 13
+	OutFriReqState					// 14
+	ViewPortfoliosState				// 15
+	CreatePortfolioState			// 16
+	ViewSpecPortfolioState			// 17
+	ViewHoldingsState				// 18
+	ViewTransactionsState			// 19
+	BuyStockSearchState				// 20
+	BuyStockState					// 21
+	SellStockSearchState			// 22
+	SellStockState					// 23
+	DepositCashState				// 24
+	WithdrawCashState				// 25
+	ViewNetWorthState				// 26
+	ManageFriendsState				// 27
+	CreateStockListState			// 28
+	ViewStockListsState				// 29
+	SearchStockForDataState			// 30
+	AddStockDataState				// 31
+	ViewPortfolioStatisticsState	// 32
+	DisplayStockListState			// 33
 )
 
 // AppModel is the root model for the entire app
@@ -57,7 +63,6 @@ type AppModel struct {
 	mainMenu    		*shared.MainMenuModel
 	login       		*tuiauth.LoginModel
 	register    		*tuiauth.RegisterModel
-	configure   		*shared.ConfigureModel
 	homepage    		*shared.HomePageModel
 	portfolio			*portfolio.PortfolioModel
 	viewPortfolios		*portfolio.ViewPortfoliosModel
@@ -77,10 +82,18 @@ type AppModel struct {
 	viewTransactions	*portfolio.ViewTransactionsModel
 	buyStockSearch		*stock.BuyStockSearchModel
 	buyStock			*stock.BuyStockModel
+	sellStockSearch		*stock.SellStockSearchModel
+	sellStock			*stock.SellStockModel
+	depositCash			*portfolio.DepositCashModel
+	withdrawCash		*portfolio.WithdrawCashModel
+	viewNetWorth		*portfolio.ViewNetWorthModel
 	manageFriends		*friends.ManageFriendsModel
 	createStockList		*stocklist.CreateStockListModel
 	viewMyStockList		*stocklist.ViewStockListsModel
 	displayStockList	*stocklist.DisplayStockListModel
+	searchStockForData	*stock.SearchStockForDataModel
+	addStockData		*stock.AddStockDataModel
+	viewPortfolioStats	*portfolio.ViewPortfolioStatisticsModel
 }
 
 // NewAppModel creates a new app model
@@ -90,7 +103,6 @@ func NewAppModel() *AppModel {
 		mainMenu:  			shared.NewMainMenu(),
 		login:     			tuiauth.NewLogin(),
 		register:  			tuiauth.NewRegister(),
-		configure: 			shared.NewConfigure(),
 		homepage:  			shared.NewHomePage(nil),
 		portfolio: 			portfolio.NewPortfolioPage(),
 		viewPortfolios:		portfolio.NewViewPortfoliosPageWithUserID(0), // Will be set with actual user ID
@@ -110,19 +122,27 @@ func NewAppModel() *AppModel {
 		viewTransactions:	nil,
 		buyStockSearch:		nil,
 		buyStock:			nil,
+		sellStockSearch:	nil,
+		sellStock:			nil,
+		depositCash:		nil,
+		withdrawCash:		nil,
+		viewNetWorth:		nil,
 		manageFriends:		friends.NewManageFriendsPage(nil),
 		createStockList:	stocklist.NewCreateStockListPage(nil),
 		viewMyStockList: 	stocklist.NewViewStockLists(nil),
-		displayStockList: stocklist.NewDisplayStockListPage(
+		displayStockList: 	stocklist.NewDisplayStockListPage(
 			// a default stocklist
     		stocklist.StockList{
         		StockListID: -1,
         		Name:        "Loading...",
         		Visibility:  "Private",
     		},
-    		nil,  // no current user yet
+    		nil,
     		0,
 		),
+		searchStockForData:	stock.NewSearchStockForDataPage(),
+		addStockData:		nil,
+		viewPortfolioStats:	nil,
 	}
 }
 // returns intial command for the application to run
@@ -161,9 +181,10 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "Register":
 					m.state = RegisterState
 					m.register = tuiauth.NewRegister()
-				case "Configure":
-					m.state = ConfigureState
-					m.configure = shared.NewConfigure()
+				case "Add Stock Data":
+					m.state = SearchStockForDataState
+					m.searchStockForData = stock.NewSearchStockForDataPage()
+					return m, m.searchStockForData.Init()
 				case "Quit":
 					return m, tea.Quit
 				}
@@ -201,17 +222,6 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Go back to main view from register view
 		if m.register.BackPressed {
 			m.register.BackPressed = false
-			m.state = MainMenuState
-		}
-		return m, cmd
-
-	case ConfigureState:
-		configure, cmd := m.configure.Update(msg)
-		m.configure = configure.(*shared.ConfigureModel)
-
-		// Go back to home view from configure view
-		if m.configure.BackPressed {
-			m.configure.BackPressed = false
 			m.state = MainMenuState
 		}
 		return m, cmd
@@ -325,6 +335,35 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cashAccount := m.viewSpecPortfolio.Portfolio.CashAccount
 				m.buyStockSearch = stock.NewBuyStockSearchPageWithPortfolio(userID, portfolioID, cashAccount)
 				return m, m.buyStockSearch.Init()
+			case "Sell Stock":
+				m.state = SellStockSearchState
+				userID := int(m.currentUser.UserID)
+				portfolioID := m.viewSpecPortfolio.PortfolioID
+				m.sellStockSearch = stock.NewSellStockSearchPageWithPortfolio(userID, portfolioID)
+				return m, m.sellStockSearch.Init()
+			case "Deposit Cash":
+				m.state = DepositCashState
+				userID := int(m.currentUser.UserID)
+				portfolioID := m.viewSpecPortfolio.PortfolioID
+				m.depositCash = portfolio.NewDepositCashPageWithPortfolioID(userID, portfolioID)
+			case "Withdraw Cash":
+				m.state = WithdrawCashState
+				userID := int(m.currentUser.UserID)
+				portfolioID := m.viewSpecPortfolio.PortfolioID
+				cashAccount := m.viewSpecPortfolio.Portfolio.CashAccount
+				m.withdrawCash = portfolio.NewWithdrawCashPageWithPortfolioID(userID, portfolioID, cashAccount)
+			case "View Net Worth":
+				m.state = ViewNetWorthState
+				userID := int(m.currentUser.UserID)
+				portfolioID := m.viewSpecPortfolio.PortfolioID
+				m.viewNetWorth = portfolio.NewViewNetWorthPageWithPortfolioID(userID, portfolioID)
+				return m, m.viewNetWorth.Init()
+			case "View Statistics":
+				m.state = ViewPortfolioStatisticsState
+				userID := int(m.currentUser.UserID)
+				portfolioID := m.viewSpecPortfolio.PortfolioID
+				m.viewPortfolioStats = portfolio.NewViewPortfolioStatisticsPageWithPortfolioID(userID, portfolioID)
+				return m, m.viewPortfolioStats.Init()
 			}
 		}
 
@@ -372,6 +411,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = HomePageState
 		}
 		return m, cmd
+
 	case CreateStockListState:
 		createStockList, cmd := m.createStockList.Update(msg)
 		m.createStockList = createStockList.(*stocklist.CreateStockListModel)
@@ -389,6 +429,118 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.viewMyStockList.BackPressed {
 			m.viewMyStockList.BackPressed = false
 			m.state = StockListState
+		}
+		if m.viewMyStockList.Selected >= 0 && m.viewMyStockList.Selected < len(m.viewMyStockList.StockLists) {
+			selectedStockList := m.viewMyStockList.StockLists[m.viewMyStockList.Selected]
+			if m.viewMyStockList.Confirmed {
+				m.viewMyStockList.Confirmed = false
+				currentUser := m.viewMyStockList.GetUser()
+				m.displayStockList = stocklist.NewDisplayStockListPage(
+            		selectedStockList,
+            		currentUser,
+            		currentUser.UserID,   
+       			)
+				m.state = DisplayStockListState
+				return m, nil
+			}
+		}
+
+		return m, cmd
+	
+	case DisplayStockListState:
+		displayStockList, cmd := m.displayStockList.Update(msg)
+		m.displayStockList = displayStockList.(*stocklist.DisplayStockListModel)
+		// Go back to main stock list page from display stock list page
+		if m.displayStockList.BackPressed {
+			m.displayStockList.BackPressed = false
+			m.state = StockListState
+		}
+		return m, cmd
+	case SearchStockForDataState:
+		searchStockForData, cmd := m.searchStockForData.Update(msg)
+		m.searchStockForData = searchStockForData.(*stock.SearchStockForDataModel)
+
+		// handle stock selection
+		if m.searchStockForData.BackPressed {
+			m.searchStockForData.BackPressed = false
+			m.state = MainMenuState
+			m.mainMenu = shared.NewMainMenu()
+		} else if msg, ok := msg.(stock.StockSelectedForDataMsg); ok {
+			m.state = AddStockDataState
+			m.addStockData = stock.NewAddStockDataPageWithSymbol(msg.Stock.Symbol)
+		}
+		return m, cmd
+
+	case AddStockDataState:
+		// Handle completion messages first
+		if completedMsg, ok := msg.(stock.AddStockDataCompletedMsg); ok {
+			if completedMsg.Success {
+				m.addStockData.Error = ""
+				// Show success and go back to stock selection
+				m.state = SearchStockForDataState
+				m.searchStockForData = stock.NewSearchStockForDataPage()
+				return m, m.searchStockForData.Init()
+			} else {
+				m.addStockData.Error = completedMsg.Message
+			}
+			return m, nil
+		}
+
+		addStockData, cmd := m.addStockData.Update(msg)
+		m.addStockData = addStockData.(*stock.AddStockDataModel)
+
+		// Handle form submission
+		if m.addStockData.BackPressed {
+			m.addStockData.BackPressed = false
+			m.state = SearchStockForDataState
+			m.searchStockForData = stock.NewSearchStockForDataPage()
+			return m, m.searchStockForData.Init()
+		} else if m.addStockData.Confirmed {
+			m.addStockData.Confirmed = false
+			// Parse and submit the data
+			date, open, high, low, close, volume, err := m.addStockData.GetData()
+			if err != nil {
+				m.addStockData.Error = fmt.Sprintf("Invalid data: %v", err)
+				return m, nil
+			}
+
+			// Call database function asynchronously
+			return m, func() tea.Msg {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+
+				dbService := database.New()
+				err := dbService.AddStockData(ctx, m.addStockData.Symbol, date, open, high, low, close, volume)
+				if err != nil {
+					return stock.AddStockDataCompletedMsg{
+						Success: false,
+						Message: fmt.Sprintf("Error adding stock data: %v", err),
+					}
+				}
+
+				return stock.AddStockDataCompletedMsg{
+					Symbol:  m.addStockData.Symbol,
+					Date:    date,
+					Open:    open,
+					High:    high,
+					Low:     low,
+					Close:   close,
+					Volume:  volume,
+					Success: true,
+					Message: fmt.Sprintf("Successfully added data for %s on %s", m.addStockData.Symbol, date),
+				}
+			}
+		}
+		return m, cmd
+
+	case ViewPortfolioStatisticsState:
+		viewPortfolioStats, cmd := m.viewPortfolioStats.Update(msg)
+		m.viewPortfolioStats = viewPortfolioStats.(*portfolio.ViewPortfolioStatisticsModel)
+
+		// Go back to specific portfolio view
+		if m.viewPortfolioStats.BackPressed {
+			m.viewPortfolioStats.BackPressed = false
+			m.state = ViewSpecPortfolioState
 		}
 		return m, cmd
 
@@ -641,6 +793,197 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, cmd
+	case SellStockSearchState:
+		sellStockSearch, cmd := m.sellStockSearch.Update(msg)
+		m.sellStockSearch = sellStockSearch.(*stock.SellStockSearchModel)
+
+		// Check if a stock was selected
+		if stockMsg, ok := msg.(stock.StockSelectedForSellMsg); ok {
+			m.state = SellStockState
+			userID := int(m.currentUser.UserID)
+			portfolioID := m.sellStockSearch.PortfolioID
+			m.sellStock = stock.NewSellStockPageWithHolding(userID, portfolioID, stockMsg.Holding)
+		}
+
+		// Go back to specific portfolio view from sell stock search
+		if m.sellStockSearch.BackPressed {
+			m.sellStockSearch.BackPressed = false
+			m.state = ViewSpecPortfolioState
+		}
+		return m, cmd
+	case SellStockState:
+		sellStock, cmd := m.sellStock.Update(msg)
+		m.sellStock = sellStock.(*stock.SellStockModel)
+
+		// Handle confirmed sale
+		if m.sellStock.Confirmed {
+			m.sellStock.Confirmed = false
+			// Execute the sell transaction asynchronously
+			return m, func() tea.Msg {
+				db := database.New()
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+
+				// Convert portfolioID from string to int
+				portfolioID := 0
+				fmt.Sscanf(m.sellStock.PortfolioID, "%d", &portfolioID)
+
+				err := db.SellStock(
+					ctx,
+					portfolioID,
+					m.sellStock.GetHolding().Symbol,
+					m.sellStock.GetQuantity(),
+					m.sellStock.GetHolding().Price,
+				)
+
+				if err != nil {
+					return stock.SellStockCompletedMsg{
+						Success: false,
+						Message: "✗ " + err.Error(),
+					}
+				}
+
+				return stock.SellStockCompletedMsg{
+					Success: true,
+					Message: "✓ Stock sale completed!",
+				}
+			}
+		}
+
+		// Handle sale completion message
+		if completedMsg, ok := msg.(stock.SellStockCompletedMsg); ok {
+			if completedMsg.Success {
+				// Sale successful, go back to portfolio view and refresh data
+				m.state = ViewSpecPortfolioState
+				return m, m.viewSpecPortfolio.RefreshPortfolio()
+			} else {
+				// Show error message in the sell stock page
+				m.sellStock.Error = completedMsg.Message
+			}
+		}
+
+		// Go back to stock search from sell stock page
+		if m.sellStock.BackPressed {
+			m.sellStock.BackPressed = false
+			m.state = SellStockSearchState
+		}
+
+		return m, cmd
+	case DepositCashState:
+		depositCash, cmd := m.depositCash.Update(msg)
+		m.depositCash = depositCash.(*portfolio.DepositCashModel)
+
+		// Handle confirmed deposit
+		if m.depositCash.Confirmed {
+			m.depositCash.Confirmed = false
+			// Execute the deposit asynchronously
+			return m, func() tea.Msg {
+				db := database.New()
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+
+				// Convert portfolioID from string to int
+				portfolioID := 0
+				fmt.Sscanf(m.depositCash.PortfolioID, "%d", &portfolioID)
+
+				err := db.DepositCash(ctx, portfolioID, m.depositCash.GetAmount())
+
+				if err != nil {
+					return portfolio.DepositCashCompletedMsg{
+						Success: false,
+						Message: "✗ " + err.Error(),
+					}
+				}
+
+				return portfolio.DepositCashCompletedMsg{
+					Success: true,
+					Message: "✓ Deposit completed!",
+				}
+			}
+		}
+
+		// Handle deposit completion message
+		if completedMsg, ok := msg.(portfolio.DepositCashCompletedMsg); ok {
+			if completedMsg.Success {
+				// Deposit successful, go back to portfolio view and refresh data
+				m.state = ViewSpecPortfolioState
+				return m, m.viewSpecPortfolio.RefreshPortfolio()
+			} else {
+				// Show error message in the deposit page
+				m.depositCash.Error = completedMsg.Message
+			}
+		}
+
+		// Go back to portfolio view from deposit page
+		if m.depositCash.BackPressed {
+			m.depositCash.BackPressed = false
+			m.state = ViewSpecPortfolioState
+		}
+
+		return m, cmd
+	case WithdrawCashState:
+		withdrawCash, cmd := m.withdrawCash.Update(msg)
+		m.withdrawCash = withdrawCash.(*portfolio.WithdrawCashModel)
+
+		// Handle confirmed withdrawal
+		if m.withdrawCash.Confirmed {
+			m.withdrawCash.Confirmed = false
+			// Execute the withdrawal asynchronously
+			return m, func() tea.Msg {
+				db := database.New()
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+
+				// Convert portfolioID from string to int
+				portfolioID := 0
+				fmt.Sscanf(m.withdrawCash.PortfolioID, "%d", &portfolioID)
+
+				err := db.WithdrawCash(ctx, portfolioID, m.withdrawCash.GetAmount())
+
+				if err != nil {
+					return portfolio.WithdrawCashCompletedMsg{
+						Success: false,
+						Message: "✗ " + err.Error(),
+					}
+				}
+
+				return portfolio.WithdrawCashCompletedMsg{
+					Success: true,
+					Message: "✓ Withdrawal completed!",
+				}
+			}
+		}
+
+		// Handle withdrawal completion message
+		if completedMsg, ok := msg.(portfolio.WithdrawCashCompletedMsg); ok {
+			if completedMsg.Success {
+				// Withdrawal successful, go back to portfolio view and refresh data
+				m.state = ViewSpecPortfolioState
+				return m, m.viewSpecPortfolio.RefreshPortfolio()
+			} else {
+				// Show error message in the withdraw page
+				m.withdrawCash.Error = completedMsg.Message
+			}
+		}
+
+		// Go back to portfolio view from withdraw page
+		if m.withdrawCash.BackPressed {
+			m.withdrawCash.BackPressed = false
+			m.state = ViewSpecPortfolioState
+		}
+
+		return m, cmd
+	case ViewNetWorthState:
+		viewNetWorth, cmd := m.viewNetWorth.Update(msg)
+		m.viewNetWorth = viewNetWorth.(*portfolio.ViewNetWorthModel)
+
+		// Go back to portfolio view from net worth page
+		if m.viewNetWorth.BackPressed {
+			m.viewNetWorth.BackPressed = false
+			m.state = ViewSpecPortfolioState
+		}
+
+		return m, cmd
 	case ManageFriendsState:
 		manageFriends, cmd := m.manageFriends.Update(msg)
 		m.manageFriends = manageFriends.(*friends.ManageFriendsModel)
@@ -650,7 +993,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = SocialState
 		}
 		return m, cmd
-		
+
 	}
 	return m, nil
 }
@@ -664,8 +1007,6 @@ func (m *AppModel) View() string {
 		return m.login.View()
 	case RegisterState:
 		return m.register.View()
-	case ConfigureState:
-		return m.configure.View()
 	case HomePageState:
 		return m.homepage.View()
 	case PortfolioState:
@@ -704,12 +1045,30 @@ func (m *AppModel) View() string {
 		return m.buyStockSearch.View()
 	case BuyStockState:
 		return m.buyStock.View()
+	case SellStockSearchState:
+		return m.sellStockSearch.View()
+	case SellStockState:
+		return m.sellStock.View()
+	case DepositCashState:
+		return m.depositCash.View()
+	case WithdrawCashState:
+		return m.withdrawCash.View()
+	case ViewNetWorthState:
+		return m.viewNetWorth.View()
 	case ManageFriendsState:
 		return m.manageFriends.View()
 	case CreateStockListState:
 		return m.createStockList.View()
 	case ViewStockListsState:
 		return m.viewMyStockList.View()
+	case SearchStockForDataState:
+		return m.searchStockForData.View()
+	case AddStockDataState:
+		return m.addStockData.View()
+	case ViewPortfolioStatisticsState:
+		return m.viewPortfolioStats.View()
+	case DisplayStockListState:
+		return m.displayStockList.View()
 	}
 	return ""
 }
