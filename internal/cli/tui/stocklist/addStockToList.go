@@ -26,6 +26,7 @@ type AddStockToListModel struct {
 type stockAddedCreatedMsg struct {
 	stockListID int
 	symbol		string
+	updated		bool
 }
 
 type stockAddedErrorMsg struct {
@@ -52,7 +53,11 @@ func (m *AddStockToListModel) Init() tea.Cmd {
 func (m *AddStockToListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case stockAddedCreatedMsg:
-		m.SuccessMessage = fmt.Sprintf("Stock '%s' added successfully to %s (%d)", msg.symbol, m.StockList.Name, m.StockList.StockListID)
+		if msg.updated{
+			m.SuccessMessage = fmt.Sprintf("Stock '%s' updated successfully to %s (%d)", msg.symbol, m.StockList.Name, m.StockList.StockListID)
+		} else {
+			m.SuccessMessage = fmt.Sprintf("Stock '%s' added successfully to %s (%d)", msg.symbol, m.StockList.Name, m.StockList.StockListID)
+		}
 	case stockAddedErrorMsg:
 		m.Error = fmt.Sprintf("Error adding Stock %s: %v. Try Again", m.SymbolName, msg.err)
 		m.Step = 0
@@ -142,7 +147,7 @@ func (m *AddStockToListModel) AddStockToStockListInDB() tea.Cmd {
 		}
 
 		// the symbol exist so now insert stockListID, symbol and sharesFloat into hasstockfromstocklist
-		// note we should only insert if this is a new symbol
+		// note we should only insert if this is a new , else update it instead
 
         err = db.QueryRow(`
 			SELECT EXISTS (
@@ -155,9 +160,21 @@ func (m *AddStockToListModel) AddStockToStockListInDB() tea.Cmd {
 			return stockAddedErrorMsg{err: err}
 		}
 		if exists {
-			return stockAddedErrorMsg{err: fmt.Errorf("stock already exists in this list")}
+			// update instead
+			_, err = db.Exec(`
+				UPDATE hasstockfromstocklist 
+				SET shares = $3
+				WHERE stocklist_id=$1 AND symbol=$2
+			`, stockListID, symbol, sharesFloat)
+
+			if err != nil {
+				return stockAddedErrorMsg{err: err}
+			}
+			return stockAddedCreatedMsg{stockListID: stockListID, symbol: symbol, updated: true}
+
+
 		}
-		// greenflag to insert
+		// greenflag to insert since doesn't exist
 		_, err = db.Exec(`
 			INSERT INTO hasStockFromStockList (stocklist_id, symbol, shares)
 			VALUES ($1, $2, $3)
@@ -167,6 +184,6 @@ func (m *AddStockToListModel) AddStockToStockListInDB() tea.Cmd {
 		}
 
 
-		return stockAddedCreatedMsg{stockListID: stockListID, symbol: symbol}
+		return stockAddedCreatedMsg{stockListID: stockListID, symbol: symbol, updated :false}
 	}
 }

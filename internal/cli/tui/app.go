@@ -485,9 +485,10 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.editStockList.Confirmed {
 				m.editStockList.Confirmed = false
 				switch option {
-				case "Add Stock":
+				case "Add/Update Stock":
 					m.state = AddStockToListState
 					m.addStockToList = stocklist.NewAddStockToListPage(m.editStockList.StockList, m.stockList.GetUser())
+				case "Delete Stock"
 				}
 			}
 		}
