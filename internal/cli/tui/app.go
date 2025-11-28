@@ -446,6 +446,20 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewPublicLists.BackPressed = false
 			m.state = StockListState
 		}
+		if m.viewPublicLists.Selected >= 0 && m.viewPublicLists.Selected < len(m.viewPublicLists.StockLists) {
+			selectedStockList := m.viewPublicLists.StockLists[m.viewPublicLists.Selected]
+			if m.viewPublicLists.Confirmed {
+				m.viewPublicLists.Confirmed = false
+				currentUser := m.stockList.GetUser()
+				m.displayStockList = stocklist.NewDisplayStockListPage(
+            		selectedStockList,
+            		currentUser,
+            		selectedStockList.UserID,   
+       			)
+				m.state = DisplayStockListState
+				return m, nil
+			}
+		}
 		return m, cmd
 	case CreateStockListState:
 		createStockList, cmd := m.createStockList.Update(msg)
