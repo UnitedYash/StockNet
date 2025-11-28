@@ -65,7 +65,8 @@ const (
 	HoldingForecastState			// 36
 	AddStockToListState				// 37
 	DeleteStockFromListState		// 38
-	ViewListHoldingsState	// 39
+	ViewListHoldingsState			// 39
+	ViewStockListStatisticsState	// 40
 )
 
 // AppModel is the root model for the entire app
@@ -107,6 +108,12 @@ type AppModel struct {
 	addStockData		*stock.AddStockDataModel
 	viewPortfolioStats	*portfolio.ViewPortfolioStatisticsModel
 	editStockList		*stocklist.EditStockListModel
+	addStockToList		*stocklist.AddStockToListModel
+	deleteStockFromList	*stocklist.DeleteStockFromList
+	viewListHoldings		*stocklist.ViewListHoldingsModel
+	holdingDetails			*portfolio.HoldingDetailsModel
+	holdingForecast			*portfolio.HoldingForecastModel
+	stockListStatistics		*stocklist.ViewStockListStatisticsModel
 }
 
 // NewAppModel creates a new app model
@@ -151,6 +158,9 @@ func NewAppModel() *AppModel {
 		addStockToList:			stocklist.NewAddStockToListPage(DefaultStockList, nil),
 		deleteStockFromList:	stocklist.NewDeleteStockFromListPage(DefaultStockList, nil),
 		viewListHoldings:		stocklist.NewViewListHoldingsPage(DefaultStockList, nil),
+		holdingDetails:			nil,
+		holdingForecast:		nil,
+		stockListStatistics:	nil,
 	}
 }
 // returns intial command for the application to run
@@ -487,6 +497,13 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewListHoldings.BackPressed = false
 			m.state = DisplayStockListState
 		}
+		// Go to stock list statistics
+		if m.viewListHoldings.ViewStatsPressed {
+			m.viewListHoldings.ViewStatsPressed = false
+			m.state = ViewStockListStatisticsState
+			m.stockListStatistics = stocklist.NewViewStockListStatisticsPage(m.viewListHoldings.StockList.StockListID)
+			cmd = m.stockListStatistics.Init()
+		}
 		return m, cmd
 	case EditStockListState:
 		editStockList, cmd := m.editStockList.Update(msg)
@@ -650,6 +667,17 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.holdingForecast.BackPressed {
 			m.holdingForecast.BackPressed = false
 			m.state = HoldingDetailsState
+		}
+		return m, cmd
+
+	case ViewStockListStatisticsState:
+		stockListStats, cmd := m.stockListStatistics.Update(msg)
+		m.stockListStatistics = stockListStats.(*stocklist.ViewStockListStatisticsModel)
+
+		// Go back to view list holdings
+		if m.stockListStatistics.BackPressed {
+			m.stockListStatistics.BackPressed = false
+			m.state = ViewListHoldingsState
 		}
 		return m, cmd
 
@@ -1205,6 +1233,8 @@ func (m *AppModel) View() string {
 		return m.holdingDetails.View()
 	case HoldingForecastState:
 		return m.holdingForecast.View()
+	case ViewStockListStatisticsState:
+		return m.stockListStatistics.View()
 	}
 	return ""
 }

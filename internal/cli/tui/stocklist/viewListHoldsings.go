@@ -10,6 +10,7 @@ import (
 // Model for the delete stock from a stocklist
 type ViewListHoldingsModel struct {
 	BackPressed 	bool
+	ViewStatsPressed bool
 	User        	*auth.User
 	StockList		StockList
 	Error      		string
@@ -53,6 +54,8 @@ func (m *ViewListHoldingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+b", "esc":
 			m.BackPressed = true
+		case "s":
+			m.ViewStatsPressed = true
 		case "up", "k":
 			if m.Selected > 0 {
 				// go up an option
@@ -96,7 +99,7 @@ func (m *ViewListHoldingsModel) View() string {
 			}
 		}
 	}
-	s += styles.FooterStyle.Render("↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("↑/↓ or k/j to navigate • 's' for statistics • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
 
