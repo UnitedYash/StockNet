@@ -72,6 +72,7 @@ const (
 	ViewSharedListsState			// 43
 	MainReviewState					// 44
 	WriteReviewState				// 45
+	ViewReviewsState				// 46
 )
 
 // AppModel is the root model for the entire app
@@ -124,6 +125,7 @@ type AppModel struct {
 	viewSharedLists			*stocklist.ViewSharedListsModel
 	mainReview   			*stocklist.MainReviewModel
 	writeReview				*stocklist.WriteReviewModel
+	viewReviews				*stocklist.ViewReviewsModel
 }
 
 // NewAppModel creates a new app model
@@ -176,6 +178,7 @@ func NewAppModel() *AppModel {
 		viewSharedLists:		stocklist.NewViewSharedListsPage(nil),
 		mainReview:				stocklist.NewMainReviewPage(DefaultStockList, nil),
 		writeReview:			stocklist.NewWriteReviewPage(DefaultStockList, nil),
+		viewReviews:			stocklist.NewViewReviewsPage(DefaultStockList, nil),
 	}
 }
 // returns intial command for the application to run
@@ -593,10 +596,23 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = WriteReviewState
 					m.writeReview = stocklist.NewWriteReviewPage(m.mainReview.StockList, m.mainReview.User)
 				case "View Reviews":
+					m.state = ViewReviewsState
+					m.viewReviews = stocklist.NewViewReviewsPage(m.mainReview.StockList, m.mainReview.User)
+					cmd = m.viewReviews.Init()
 				}
 			}
 		}
 		return m, cmd
+	case ViewReviewsState:
+		viewReviews, cmd := m.viewReviews.Update(msg)
+		m.viewReviews = viewReviews.(*stocklist.ViewReviewsModel)
+		// Go back to main review page from write reviews
+		if m.viewReviews.BackPressed {
+			m.viewReviews.BackPressed = false
+			m.state = MainReviewState
+		}
+		return m, cmd
+
 	case WriteReviewState:
 		writeReview, cmd := m.writeReview.Update(msg)
 		m.writeReview = writeReview.(*stocklist.WriteReviewModel)
@@ -1373,6 +1389,8 @@ func (m *AppModel) View() string {
 		return m.mainReview.View()
 	case WriteReviewState:
 		return m.writeReview.View()
+	case ViewReviewsState:
+		return m.viewReviews.View()
 	}
 	return ""
 }

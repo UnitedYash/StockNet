@@ -92,7 +92,6 @@ func (m *WriteReviewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-		
 	}
 	return m, nil
 

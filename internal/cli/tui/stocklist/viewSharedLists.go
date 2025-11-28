@@ -116,7 +116,7 @@ func (m *ViewSharedListsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // renders the view stock list page
 func (m *ViewSharedListsModel) View() string {
 	s := "\n"
-	s += styles.TitleStyle.Render("🥹 Shared Stock Lists") + "\n\n"
+	s += styles.TitleStyle.Render("🥹  Shared Stock Lists") + "\n\n"
 
 	if m.Loading {
 		s += "Loading Shared Stock lists...\n"
@@ -137,7 +137,6 @@ func (m *ViewSharedListsModel) View() string {
 			}
 		}
 	}
-
 	s += "\n"
 	s += styles.FooterStyle.Render("Press enter to select • ↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
