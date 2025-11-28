@@ -1,23 +1,14 @@
 package stocklist
 
+
 import (
-	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
-	"StockNet/internal/cli/tui/styles"
 	"StockNet/internal/database"
 	"StockNet/internal/auth"
 )
 
-// StockList represents a user's stockList
-type StockList struct {
-    StockListID int
-    Name        string
-    Visibility  string
-	UserID      uint32
-}
-
-// Model for viewing user's stocklists
-type ViewStockListsModel struct {
+// Model for viewing public stock lists
+type ViewPublicListsModel struct {
     StockLists  []StockList
     Selected    int
     Loading     bool
@@ -27,13 +18,13 @@ type ViewStockListsModel struct {
 	Confirmed	bool
 }
 
-type stockListsLoadedMsg struct { stockLists []StockList }
-type stockListSelectedMsg struct { StockList StockList }
-type stockListsErrorMsg struct { err error }
+type publicListsLoadedMsg struct { stockLists []StockList }
+type publiclistSelectedMsg struct { StockList StockList }
+type publicListsErrorMsg struct { err error }
 
-// returns initial view stock list model
-func NewViewStockLists(user *auth.User) *ViewStockListsModel {
-	return &ViewStockListsModel{
+// returns initial view pulbic stock lists model
+func NewViewPublicLists(user *auth.User) *ViewPublicListsModel {
+	return &ViewPublicListsModel{
 		StockLists:    	[]StockList{},
 		Selected:      	0,
 		Loading:       	true,
@@ -43,49 +34,51 @@ func NewViewStockLists(user *auth.User) *ViewStockListsModel {
 	}
 }
 
-// returns initial command for the view stocklists page
-func (m *ViewStockListsModel) Init() tea.Cmd {
+// returns initial command for the view public stocklists page
+func (m *ViewPublicListsModel) Init() tea.Cmd {
 	return func() tea.Msg {
-		// Query stocklists from database for current user
+		// Query public stocklists from database for current user
 		db := database.New().GetDB()
 
-		query := `SELECT stocklist_id, name, visibility 
+		query := `SELECT stocklist_id, user_id, name, visibility 
 					FROM StockList 
-					WHERE user_id = $1;`
+					WHERE visibility = 'public';`
 
 		rows, err := db.Query(query, m.User.UserID)
 		if err != nil {
-			return stockListsErrorMsg{err: err}
+			return publicListsErrorMsg{err: err}
 		}
 		defer rows.Close()
 
 		var stockLists []StockList
 		for rows.Next() {
 			var stockListID int
+			var userID uint32
 			var name string
 			var visibility string
-			if err := rows.Scan(&stockListID, &name, &visibility); err != nil {
-				return stockListsErrorMsg{err: err}
+			if err := rows.Scan(&stockListID, &userID, &name, &visibility); err != nil {
+				return publicListsErrorMsg{err: err}
 			}
 			stockLists = append(stockLists, StockList{
 				StockListID:	stockListID,
+				UserID:			userID
 				Name:       	name,
 				Visibility: 	visibility,
 			})
 		}
 
-		return stockListsLoadedMsg{stockLists: stockLists}
+		return publicListsLoadedMsg{stockLists: stockLists}
 	}
 }
 
 // Handles incoming events and updates the model
-func (m *ViewStockListsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *ViewPublicListsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case stockListsLoadedMsg:
+	case publicListsLoadedMsg:
 		m.StockLists = msg.stockLists
 		m.Loading = false
 		m.Error = ""
-	case stockListsErrorMsg:
+	case publicListsErrorMsg:
 		m.Loading = false
 		m.Error = fmt.Sprintf("Error loading stock lists: %v", msg.err)
 	case tea.KeyMsg:
@@ -117,18 +110,18 @@ func (m *ViewStockListsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // renders the view stock list page
-func (m *ViewStockListsModel) View() string {
+func (m *ViewPublicListsModel) View() string {
 	s := "\n"
-	s += styles.TitleStyle.Render("📃 Your Stock Lists") + "\n\n"
+	s += styles.TitleStyle.Render("🤼 Public Stock Lists") + "\n\n"
 
 	if m.Loading {
-		s += "Loading Stock lists...\n"
+		s += "Loading Public Stock lists...\n"
 	} else if m.Error != "" {
 		s += styles.ErrorStyle.Render(m.Error) + "\n"
 	} else if len(m.StockLists) == 0 {
-		s += "No stock lists found. Create one to get started!\n"
+		s += "No public stock lists found. Tough Luck.\n"
 	} else {
-		s += styles.HeaderStyle.Render("ID    Name                          Visibility") + "\n"
+		s += styles.HeaderStyle.Render("ID    Name                          Owner ID") + "\n"
 		s += "────────────────────────────────────────────────────────\n"
 
 		for i, stock := range m.StockLists {
@@ -146,7 +139,3 @@ func (m *ViewStockListsModel) View() string {
 	return s
 }
 
-// returns (logged in) user
-func (m *ViewStockListsModel) GetUser() *auth.User {
-	return m.User
-}
