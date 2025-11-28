@@ -68,6 +68,7 @@ const (
 	ViewListHoldingsState			// 39
 	ViewStockListStatisticsState	// 40
 	ViewPublicListsState			// 41
+	ShareStockListState				// 42
 )
 
 // AppModel is the root model for the entire app
@@ -116,6 +117,7 @@ type AppModel struct {
 	holdingForecast			*portfolio.HoldingForecastModel
 	stockListStatistics		*stocklist.ViewStockListStatisticsModel
 	viewPublicLists			*stocklist.ViewPublicListsModel	
+	shareStockList			*stocklist.ShareStockListModel
 
 }
 
@@ -165,6 +167,7 @@ func NewAppModel() *AppModel {
 		holdingForecast:		nil,
 		stockListStatistics:	nil,
 		viewPublicLists:		stocklist.NewViewPublicListsPage(nil),
+		shareStockList:			stocklist.NewShareStockListPage(DefaultStockList, nil),
 	}
 }
 // returns intial command for the application to run
@@ -528,11 +531,26 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.displayStockList.SuccessMessage = ""
 						m.displayStockList.DeleteList  = false
 					}
+				
 					return m, cmd
+				case "Share":
+					m.state = ShareStockListState
+					m.shareStockList = stocklist.NewShareStockListPage(m.displayStockList.StockList, m.stockList.GetUser())
 				}
 			}
 		}
 		return m, cmd
+
+	case ShareStockListState:
+		shareStockList, cmd := m.shareStockList.Update(msg)
+		m.shareStockList = shareStockList.(*stocklist.ShareStockListModel)
+		// Go back to display stock list page from share page
+		if m.shareStockList.BackPressed {
+			m.shareStockList.BackPressed = false
+			m.state = DisplayStockListState
+		}
+		return m, cmd
+
 	case ViewListHoldingsState:
 		viewListHoldings, cmd := m.viewListHoldings.Update(msg)
 		m.viewListHoldings = viewListHoldings.(*stocklist.ViewListHoldingsModel)
@@ -1281,6 +1299,8 @@ func (m *AppModel) View() string {
 		return m.stockListStatistics.View()
 	case ViewPublicListsState:
 		return m.viewPublicLists.View()
+	case ShareStockListState:
+		return m.shareStockList.View()
 	}
 	return ""
 }

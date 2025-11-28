@@ -39,7 +39,7 @@ func NewDisplayStockListPage(stockList StockList, user *auth.User, OwnerID uint3
 	if user != nil && user.UserID == OwnerID {
 		model.Options = []string{"View Stocks", "Edit List", "Reviews", "Share", "Toggle Visibility", "Delete List"}
 	} else {
-		model.Options = []string{"View Stocks", "Reviews", "Share"}
+		model.Options = []string{"View Stocks", "Reviews"}
 	}
 
 	return model
