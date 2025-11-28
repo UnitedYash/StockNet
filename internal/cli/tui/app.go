@@ -69,6 +69,7 @@ const (
 	ViewStockListStatisticsState	// 40
 	ViewPublicListsState			// 41
 	ShareStockListState				// 42
+	ViewSharedListsState			// 43
 )
 
 // AppModel is the root model for the entire app
@@ -118,7 +119,7 @@ type AppModel struct {
 	stockListStatistics		*stocklist.ViewStockListStatisticsModel
 	viewPublicLists			*stocklist.ViewPublicListsModel	
 	shareStockList			*stocklist.ShareStockListModel
-
+	viewSharedLists			*stocklist.ViewSharedListsModel
 }
 
 // NewAppModel creates a new app model
@@ -168,6 +169,7 @@ func NewAppModel() *AppModel {
 		stockListStatistics:	nil,
 		viewPublicLists:		stocklist.NewViewPublicListsPage(nil),
 		shareStockList:			stocklist.NewShareStockListPage(DefaultStockList, nil),
+		viewSharedLists:		stocklist.NewViewSharedListsPage(nil),
 	}
 }
 // returns intial command for the application to run
@@ -431,6 +433,10 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = ViewPublicListsState
 					m.viewPublicLists = stocklist.NewViewPublicListsPage(m.stockList.GetUser())
 					cmd = m.viewPublicLists.Init()
+				case "Shared With Me":
+					m.state = ViewSharedListsState
+					m.viewSharedLists = stocklist.NewViewSharedListsPage(m.stockList.GetUser())
+					cmd = m.viewSharedLists.Init()
 				}
 			}
 		}
@@ -440,11 +446,33 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = HomePageState
 		}
 		return m, cmd
-
+	case ViewSharedListsState:
+		viewSharedLists, cmd := m.viewSharedLists.Update(msg)
+		m.viewSharedLists = viewSharedLists.(*stocklist.ViewSharedListsModel)
+		// Go back to stocklist page from shared stocklist page
+		if m.viewSharedLists.BackPressed {
+			m.viewSharedLists.BackPressed = false
+			m.state = StockListState
+		}
+		if m.viewSharedLists.Selected >= 0 && m.viewSharedLists.Selected < len(m.viewSharedLists.StockLists) {
+			selectedStockList := m.viewSharedLists.StockLists[m.viewSharedLists.Selected]
+			if m.viewSharedLists.Confirmed {
+				m.viewSharedLists.Confirmed = false
+				currentUser := m.stockList.GetUser()
+				m.displayStockList = stocklist.NewDisplayStockListPage(
+            		selectedStockList,
+            		currentUser,
+            		selectedStockList.UserID,   
+       			)
+				m.state = DisplayStockListState
+				return m, nil
+			}
+		}
+		return m, cmd
 	case ViewPublicListsState:
 		viewPublicLists, cmd := m.viewPublicLists.Update(msg)
 		m.viewPublicLists = viewPublicLists.(*stocklist.ViewPublicListsModel)
-		// Go back to homepage from stock list page
+		// Go back to stocklist page from viewing public stocking list page
 		if m.viewPublicLists.BackPressed {
 			m.viewPublicLists.BackPressed = false
 			m.state = StockListState
@@ -1301,6 +1329,8 @@ func (m *AppModel) View() string {
 		return m.viewPublicLists.View()
 	case ShareStockListState:
 		return m.shareStockList.View()
+	case ViewSharedListsState:
+		return m.viewSharedLists.View()
 	}
 	return ""
 }
