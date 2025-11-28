@@ -9,8 +9,9 @@ import (
 )
 
 type StockListHolding struct {
-    Symbol	string
-    Shares  float64
+    Symbol       string
+    Shares       float64
+    CurrentPrice float64
 }
 
 // Model for the delete stock from a stocklist
@@ -121,16 +122,23 @@ func (m *DeleteStockFromList) View() string {
 		s += "No Holdings in this Stock List! Try adding some."
 	} else {
 
-		s += styles.HeaderStyle.Render("Symbol    Share") + "\n"
-		s += "────────────────────────────────────────────────────────\n"
+		s += styles.HeaderStyle.Render("Symbol    Shares        Price         Net Worth") + "\n"
+		s += "─────────────────────────────────────────────────────────────────────────\n"
+
+		var totalNetWorth float64
 		for i, holding := range m.StockHoldings {
-			line := fmt.Sprintf("%-5s %-30f", holding.Symbol, holding.Shares)
+			netWorth := holding.Shares * holding.CurrentPrice
+			totalNetWorth += netWorth
+			line := fmt.Sprintf("%-8s %-12.2f %-12.2f %-12.2f", holding.Symbol, holding.Shares, holding.CurrentPrice, netWorth)
 			if i == m.Selected {
-			s += fmt.Sprintf("%s\n", styles.SelectedStyle.Render("→ "+ line))
+				s += fmt.Sprintf("%s\n", styles.SelectedStyle.Render("→ "+line))
 			} else {
-				s += fmt.Sprintf("%s\n", styles.UnselectedStyle.Render("  "+ line))
+				s += fmt.Sprintf("%s\n", styles.UnselectedStyle.Render("  "+line))
 			}
 		}
+
+		s += "─────────────────────────────────────────────────────────────────────────\n"
+		s += fmt.Sprintf("%-8s %-12s %-12s %-12.2f\n", "", "", "Total:", totalNetWorth)
 	}
 	s += styles.FooterStyle.Render("'r' to remove holding • ↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
@@ -142,10 +150,11 @@ func getStockListHoldings(stockListID int) ([]StockListHolding, error){
 	db := database.New().GetDB()
 
 	rows, err := db.Query(`
-		SELECT symbol, shares
-		FROM hasstockfromstocklist
-		WHERE stocklist_id = $1
-	
+		SELECT h.symbol, h.shares, cp.price
+		FROM hasstockfromstocklist h
+		LEFT JOIN CurrentPrices cp ON h.symbol = cp.symbol
+		WHERE h.stocklist_id = $1
+
 	`, stockListID)
 
 	if err != nil {
@@ -156,7 +165,7 @@ func getStockListHoldings(stockListID int) ([]StockListHolding, error){
 	var holdings []StockListHolding
 	for rows.Next() {
 		var holding StockListHolding
-		err := rows.Scan(&holding.Symbol, &holding.Shares)
+		err := rows.Scan(&holding.Symbol, &holding.Shares, &holding.CurrentPrice)
 		if err != nil {
 			return nil, err
 		}

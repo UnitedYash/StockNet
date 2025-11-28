@@ -46,7 +46,6 @@ func (m *CurrentStocksModel) Init() tea.Cmd {
 		//Query current prices
 		rows, err := db.Query("SELECT symbol, price, timestamp FROM CurrentPrices ORDER BY symbol")
 		if err != nil {
-			fmt.Printf("Database error: %v\n", err)
 			return stocksLoadError{err: err}
 		}
 		defer rows.Close()
@@ -54,12 +53,10 @@ func (m *CurrentStocksModel) Init() tea.Cmd {
 		for rows.Next() {
 			var s Stock
 			if err := rows.Scan(&s.Symbol, &s.Price, &s.Timestamp); err != nil {
-				fmt.Printf("Scan error: %v\n", err)
 				return stocksLoadError{err: err}
 			}
 			stocks = append(stocks, s)
 		}
-		fmt.Printf("Loaded %d stocks\n", len(stocks))
 		return stocksLoadedMsg{stocks: stocks}
 	}
 }

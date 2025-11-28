@@ -5,6 +5,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"StockNet/internal/database"
 	"StockNet/internal/auth"
+	"fmt"
+	"StockNet/internal/cli/tui/styles"
+
 )
 
 // Model for viewing public stock lists
@@ -23,7 +26,7 @@ type publiclistSelectedMsg struct { StockList StockList }
 type publicListsErrorMsg struct { err error }
 
 // returns initial view pulbic stock lists model
-func NewViewPublicLists(user *auth.User) *ViewPublicListsModel {
+func NewViewPublicListsPage(user *auth.User) *ViewPublicListsModel {
 	return &ViewPublicListsModel{
 		StockLists:    	[]StockList{},
 		Selected:      	0,
@@ -44,7 +47,7 @@ func (m *ViewPublicListsModel) Init() tea.Cmd {
 					FROM StockList 
 					WHERE visibility = 'public';`
 
-		rows, err := db.Query(query, m.User.UserID)
+		rows, err := db.Query(query)
 		if err != nil {
 			return publicListsErrorMsg{err: err}
 		}
@@ -61,7 +64,7 @@ func (m *ViewPublicListsModel) Init() tea.Cmd {
 			}
 			stockLists = append(stockLists, StockList{
 				StockListID:	stockListID,
-				UserID:			userID
+				UserID:			userID,
 				Name:       	name,
 				Visibility: 	visibility,
 			})
@@ -125,7 +128,7 @@ func (m *ViewPublicListsModel) View() string {
 		s += "────────────────────────────────────────────────────────\n"
 
 		for i, stock := range m.StockLists {
-			line := fmt.Sprintf("%-5d %-30s %-10s", stock.StockListID, stock.Name, stock.Visibility)
+			line := fmt.Sprintf("%-5d %-30s %-10d", stock.StockListID, stock.Name, stock.UserID)
 			if i == m.Selected {
 				s += styles.SelectedStyle.Render(line) + "\n"
 			} else {

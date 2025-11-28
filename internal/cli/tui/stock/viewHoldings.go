@@ -16,13 +16,14 @@ type Holding struct {
 }
 
 type ViewHoldingsModel struct {
-	PortfolioID  string
-	Holdings     []Holding
-	Selected     int
-	Loading      bool
-	BackPressed  bool
-	ScrollOffset int
-	Error        string
+	PortfolioID       string
+	Holdings          []Holding
+	Selected          int
+	Loading           bool
+	BackPressed       bool
+	ScrollOffset      int
+	Error             string
+	ViewDetailsPressed bool
 }
 
 type holdingsLoadedMsg struct {
@@ -101,6 +102,10 @@ func (m *ViewHoldingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.Selected = 0
 			}
+		case "enter", "return":
+			if len(m.Holdings) > 0 {
+				m.ViewDetailsPressed = true
+			}
 		case "ctrl+b", "esc":
 			m.BackPressed = true
 		}
@@ -167,7 +172,7 @@ func (m *ViewHoldingsModel) View() string {
 		}
 	}
 
-	s += styles.FooterStyle.Render("↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("↑/↓ or k/j to navigate • 'Enter' to view details • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
 

@@ -61,9 +61,13 @@ const (
 	ViewPortfolioStatisticsState	// 32
 	DisplayStockListState			// 33
 	EditStockListState				// 34
-	AddStockToListState				// 35
-	DeleteStockFromListState		// 36
-	ViewListHoldingsState			// 37
+	HoldingDetailsState				// 35
+	HoldingForecastState			// 36
+	AddStockToListState				// 37
+	DeleteStockFromListState		// 38
+	ViewListHoldingsState			// 39
+	ViewStockListStatisticsState	// 40
+	ViewPublicListsState			// 41
 )
 
 // AppModel is the root model for the entire app
@@ -78,7 +82,7 @@ type AppModel struct {
 	viewPortfolios			*portfolio.ViewPortfoliosModel
 	createPortfolio			*portfolio.CreatePortfolioModel
 	stockList				*stocklist.StockListModel
-	stockAnalysis	 		*stock.StockAnalysisModel
+	stockAnalysis 			*stock.StockAnalysisModel
 	social					*shared.SocialModel
 	currentStocks			*stock.CurrentStocksModel
 	searchStock				*stock.SearchStockModel
@@ -106,8 +110,13 @@ type AppModel struct {
 	viewPortfolioStats		*portfolio.ViewPortfolioStatisticsModel
 	editStockList			*stocklist.EditStockListModel
 	addStockToList			*stocklist.AddStockToListModel
-	deleteStockFromList 	*stocklist.DeleteStockFromList
-	viewListHoldings 		*stocklist.ViewListHoldingsModel
+	deleteStockFromList		*stocklist.DeleteStockFromList
+	viewListHoldings		*stocklist.ViewListHoldingsModel
+	holdingDetails			*portfolio.HoldingDetailsModel
+	holdingForecast			*portfolio.HoldingForecastModel
+	stockListStatistics		*stocklist.ViewStockListStatisticsModel
+	viewPublicLists			*stocklist.ViewPublicListsModel	
+
 }
 
 // NewAppModel creates a new app model
@@ -152,6 +161,10 @@ func NewAppModel() *AppModel {
 		addStockToList:			stocklist.NewAddStockToListPage(DefaultStockList, nil),
 		deleteStockFromList:	stocklist.NewDeleteStockFromListPage(DefaultStockList, nil),
 		viewListHoldings:		stocklist.NewViewListHoldingsPage(DefaultStockList, nil),
+		holdingDetails:			nil,
+		holdingForecast:		nil,
+		stockListStatistics:	nil,
+		viewPublicLists:		stocklist.NewViewPublicListsPage(nil),
 	}
 }
 // returns intial command for the application to run
@@ -411,6 +424,10 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = ViewStockListsState
 					m.viewMyStockList = stocklist.NewViewStockLists(m.stockList.GetUser())
 					cmd = m.viewMyStockList.Init()
+				case "Public Stock Lists":
+					m.state = ViewPublicListsState
+					m.viewPublicLists = stocklist.NewViewPublicListsPage(m.stockList.GetUser())
+					cmd = m.viewPublicLists.Init()
 				}
 			}
 		}
@@ -421,6 +438,15 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, cmd
 
+	case ViewPublicListsState:
+		viewPublicLists, cmd := m.viewPublicLists.Update(msg)
+		m.viewPublicLists = viewPublicLists.(*stocklist.ViewPublicListsModel)
+		// Go back to homepage from stock list page
+		if m.viewPublicLists.BackPressed {
+			m.viewPublicLists.BackPressed = false
+			m.state = StockListState
+		}
+		return m, cmd
 	case CreateStockListState:
 		createStockList, cmd := m.createStockList.Update(msg)
 		m.createStockList = createStockList.(*stocklist.CreateStockListModel)
@@ -500,6 +526,13 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.viewListHoldings.BackPressed {
 			m.viewListHoldings.BackPressed = false
 			m.state = DisplayStockListState
+		}
+		// Go to stock list statistics
+		if m.viewListHoldings.ViewStatsPressed {
+			m.viewListHoldings.ViewStatsPressed = false
+			m.state = ViewStockListStatisticsState
+			m.stockListStatistics = stocklist.NewViewStockListStatisticsPage(m.viewListHoldings.StockList.StockListID)
+			cmd = m.stockListStatistics.Init()
 		}
 		return m, cmd
 	case EditStockListState:
@@ -634,6 +667,50 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, cmd
 
+	case HoldingDetailsState:
+		holdingDetails, cmd := m.holdingDetails.Update(msg)
+		m.holdingDetails = holdingDetails.(*portfolio.HoldingDetailsModel)
+
+		// View forecast of selected holding
+		if m.holdingDetails.ViewForecastPressed {
+			m.holdingDetails.ViewForecastPressed = false
+			m.state = HoldingForecastState
+			m.holdingForecast = portfolio.NewHoldingForecastPage(
+				m.holdingDetails.Symbol,
+				m.holdingDetails.CurrentPrice,
+			)
+			return m, m.holdingForecast.Init()
+		}
+
+		// Go back to view holdings
+		if m.holdingDetails.BackPressed {
+			m.holdingDetails.BackPressed = false
+			m.state = ViewHoldingsState
+		}
+		return m, cmd
+
+	case HoldingForecastState:
+		holdingForecast, cmd := m.holdingForecast.Update(msg)
+		m.holdingForecast = holdingForecast.(*portfolio.HoldingForecastModel)
+
+		// Go back to holding details
+		if m.holdingForecast.BackPressed {
+			m.holdingForecast.BackPressed = false
+			m.state = HoldingDetailsState
+		}
+		return m, cmd
+
+	case ViewStockListStatisticsState:
+		stockListStats, cmd := m.stockListStatistics.Update(msg)
+		m.stockListStatistics = stockListStats.(*stocklist.ViewStockListStatisticsModel)
+
+		// Go back to view list holdings
+		if m.stockListStatistics.BackPressed {
+			m.stockListStatistics.BackPressed = false
+			m.state = ViewListHoldingsState
+		}
+		return m, cmd
+
 	case StockAnalysisState:
 		stockAnalysis, cmd := m.stockAnalysis.Update(msg)
 		m.stockAnalysis = stockAnalysis.(*stock.StockAnalysisModel)
@@ -700,6 +777,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.currentStocks.BackPressed = false
 			m.state = StockAnalysisState
 			m.stockAnalysis = stock.NewStockAnalysisPage()
+			return m, m.stockAnalysis.Init()
 		}
 		return m, cmd
 	case SearchStockState:
@@ -787,6 +865,20 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ViewHoldingsState:
 		viewHoldings, cmd := m.viewHoldings.Update(msg)
 		m.viewHoldings = viewHoldings.(*stock.ViewHoldingsModel)
+
+		// View details of selected holding
+		if m.viewHoldings.ViewDetailsPressed {
+			m.viewHoldings.ViewDetailsPressed = false
+			holding := m.viewHoldings.GetSelectedHolding()
+			m.state = HoldingDetailsState
+			m.holdingDetails = portfolio.NewHoldingDetailsPage(
+				m.viewHoldings.PortfolioID,
+				holding.Symbol,
+				holding.Shares,
+				holding.Price,
+			)
+			return m, m.holdingDetails.Init()
+		}
 
 		// Go back to specific portfolio view from view holdings
 		if m.viewHoldings.BackPressed {
@@ -1167,6 +1259,14 @@ func (m *AppModel) View() string {
 		return m.deleteStockFromList.View()
 	case ViewListHoldingsState:
 		return m.viewListHoldings.View()
+	case HoldingDetailsState:
+		return m.holdingDetails.View()
+	case HoldingForecastState:
+		return m.holdingForecast.View()
+	case ViewStockListStatisticsState:
+		return m.stockListStatistics.View()
+	case ViewPublicListsState:
+		return m.viewPublicLists.View()
 	}
 	return ""
 }
