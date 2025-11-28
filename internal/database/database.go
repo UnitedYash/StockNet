@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -437,6 +438,7 @@ func (s *service) GetStatisticCache(ctx context.Context, portfolioID int, statsT
 	err := s.db.QueryRowContext(ctx,
 		`SELECT value, matrix_json FROM portfolio_statistics_cache
 		 WHERE portfolio_id = $1 AND statistic_type = $2 AND time_interval = $3 AND symbol = $4 AND metric_symbol IS NULL
+		 ORDER BY computed_at DESC
 		 LIMIT 1`,
 		portfolioID, statsType, interval, symbol,
 	).Scan(&value, &matrixJSON)
@@ -461,12 +463,10 @@ func (s *service) GetStatisticCache(ctx context.Context, portfolioID int, statsT
 
 // SetStatisticCache stores a computed statistic in the cache
 func (s *service) SetStatisticCache(ctx context.Context, portfolioID int, statsType, interval, symbol, metricSymbol string, value float64, matrixJSON *string, latestDate time.Time) error {
-	// Handle empty symbol as empty string for matrices
-	if symbol == "" {
-		symbol = ""
-	}
-	if metricSymbol == "" {
-		metricSymbol = sql.NullString{}.String
+	// Convert empty metricSymbol to NULL for proper cache lookup
+	var metricSymbolPtr *string
+	if metricSymbol != "" {
+		metricSymbolPtr = &metricSymbol
 	}
 
 	_, err := s.db.ExecContext(ctx,
@@ -475,7 +475,7 @@ func (s *service) SetStatisticCache(ctx context.Context, portfolioID int, statsT
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		 ON CONFLICT (portfolio_id, statistic_type, time_interval, symbol, metric_symbol)
 		 DO UPDATE SET value = $6, matrix_json = $7, computed_at = CURRENT_TIMESTAMP, latest_data_date = $8`,
-		portfolioID, statsType, interval, symbol, metricSymbol, value, matrixJSON, latestDate,
+		portfolioID, statsType, interval, symbol, metricSymbolPtr, value, matrixJSON, latestDate,
 	)
 
 	if err != nil {
@@ -596,6 +596,12 @@ func (s *service) calculatePairwiseMatrix(ctx context.Context, symbols []string,
 
 // GetCOV calculates coefficient of variation for a stock over a time interval
 func (s *service) GetCOV(ctx context.Context, portfolioID int, symbol, timeInterval string) (float64, error) {
+	// Try to get from cache first
+	cached, err := s.GetStatisticCache(ctx, portfolioID, "cov", timeInterval, symbol)
+	if err == nil && cached != nil {
+		return cached.(float64), nil
+	}
+
 	// Get the latest date from portfolio data
 	latestDate, err := s.getLatestDateForPortfolio(ctx, portfolioID)
 	if err != nil {
@@ -633,6 +639,12 @@ func (s *service) GetCOV(ctx context.Context, portfolioID int, symbol, timeInter
 
 // GetBeta calculates correlation of a stock with all other stocks in stocks table
 func (s *service) GetBeta(ctx context.Context, portfolioID int, symbol, timeInterval string) (float64, error) {
+	// Try to get from cache first
+	cached, err := s.GetStatisticCache(ctx, portfolioID, "beta", timeInterval, symbol)
+	if err == nil && cached != nil {
+		return cached.(float64), nil
+	}
+
 	// Get the latest date from portfolio data
 	latestDate, err := s.getLatestDateForPortfolio(ctx, portfolioID)
 	if err != nil {
@@ -692,6 +704,18 @@ func (s *service) GetBeta(ctx context.Context, portfolioID int, symbol, timeInte
 
 // GetCorrelationMatrix calculates correlation between all pairs of stocks
 func (s *service) GetCorrelationMatrix(ctx context.Context, portfolioID int, timeInterval string) (map[string]map[string]float64, error) {
+	// Try to get from cache first
+	cached, err := s.GetStatisticCache(ctx, portfolioID, "correlation_matrix", timeInterval, "")
+	if err == nil && cached != nil {
+		// Cache returns JSON string, unmarshal it
+		if jsonStr, ok := cached.(string); ok {
+			var matrix map[string]map[string]float64
+			if err := json.Unmarshal([]byte(jsonStr), &matrix); err == nil {
+				return matrix, nil
+			}
+		}
+	}
+
 	// Get the latest date from portfolio data
 	latestDate, err := s.getLatestDateForPortfolio(ctx, portfolioID)
 	if err != nil {
@@ -746,11 +770,28 @@ func (s *service) GetCorrelationMatrix(ctx context.Context, portfolioID int, tim
 		matrix[symbol][symbol] = 1.0
 	}
 
+	// Convert matrix to JSON for caching
+	matrixJSON, _ := json.Marshal(matrix)
+	matrixJSONStr := string(matrixJSON)
+	s.SetStatisticCache(ctx, portfolioID, "correlation_matrix", timeInterval, "", "", 0, &matrixJSONStr, latestDate)
+
 	return matrix, nil
 }
 
 // GetCovarianceMatrix calculates covariance between all pairs of stocks
 func (s *service) GetCovarianceMatrix(ctx context.Context, portfolioID int, timeInterval string) (map[string]map[string]float64, error) {
+	// Try to get from cache first
+	cached, err := s.GetStatisticCache(ctx, portfolioID, "covariance_matrix", timeInterval, "")
+	if err == nil && cached != nil {
+		// Cache returns JSON string, unmarshal it
+		if jsonStr, ok := cached.(string); ok {
+			var matrix map[string]map[string]float64
+			if err := json.Unmarshal([]byte(jsonStr), &matrix); err == nil {
+				return matrix, nil
+			}
+		}
+	}
+
 	// Get the latest date from portfolio data
 	latestDate, err := s.getLatestDateForPortfolio(ctx, portfolioID)
 	if err != nil {
@@ -791,7 +832,17 @@ func (s *service) GetCovarianceMatrix(ctx context.Context, portfolioID int, time
 		return getAlignedPricesQuery(metric, dateRange)
 	}
 
-	return s.calculatePairwiseMatrix(ctx, symbols, latestDate, queryBuilder)
+	matrix, err := s.calculatePairwiseMatrix(ctx, symbols, latestDate, queryBuilder)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert matrix to JSON for caching
+	matrixJSON, _ := json.Marshal(matrix)
+	matrixJSONStr := string(matrixJSON)
+	s.SetStatisticCache(ctx, portfolioID, "covariance_matrix", timeInterval, "", "", 0, &matrixJSONStr, latestDate)
+
+	return matrix, nil
 }
 
 // GetPricePredictions uses linear regression to predict future prices
