@@ -5,6 +5,8 @@ import (
 	"StockNet/internal/cli/tui/styles"
 	"StockNet/internal/auth"
 	"fmt"
+	"StockNet/internal/database"
+
 )
 
 // Model for a displaying stocklist
@@ -13,10 +15,12 @@ type DisplayStockListModel struct {
     Selected    	int
     BackPressed 	bool
     Error       	string
+	SuccessMessage	string
 	User        	*auth.User	
 	OwnerUserID 	uint32
 	Options			[]string
 	Confirmed		bool
+	DeleteList		bool
 }
 
 // returns initial displaying  list model
@@ -26,8 +30,10 @@ func NewDisplayStockListPage(stockList StockList, user *auth.User, OwnerID uint3
 		Selected:		0,
 		BackPressed:	false,
 		Error:			"",
+		SuccessMessage:	"",
 		User:			user,
 		OwnerUserID:	OwnerID,
+		DeleteList:		false,
 	}
 	// if the current user is the owner of the stocklist, give edit and delete options
 	if user != nil && user.UserID == OwnerID {
@@ -95,6 +101,24 @@ func (m *DisplayStockListModel) View() string {
 			s += fmt.Sprintf("%s\n", styles.UnselectedStyle.Render("  "+option))
 		}
 	}
+	if m.DeleteList {
+		s += fmt.Sprintf("Deleting %s Stock List\n", m.StockList.Name)
+		if m.SuccessMessage != "" {
+			s += styles.SuccessStyle.Render(m.SuccessMessage) + "\n"
+		}
+	}
+
+	if m.Error != "" {
+		s += styles.ErrorStyle.Render(m.Error) + "\n"
+	}
 	s += styles.FooterStyle.Render("Enter to select • ↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
+}
+
+
+// a function to delete the current stocklist
+func DeleteStockList(stocklistID int) error {
+	db := database.New().GetDB()
+    _, err := db.Exec(`DELETE FROM stocklist WHERE stocklist_id=$1`, stocklistID)
+    return err
 }

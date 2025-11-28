@@ -476,6 +476,19 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = ViewListHoldingsState
 					m.viewListHoldings = stocklist.NewViewListHoldingsPage(m.displayStockList.StockList, m.stockList.GetUser())
 					cmd = m.viewListHoldings.Init()
+				case "Delete List":
+					selectedID := m.displayStockList.StockList.StockListID
+					err := stocklist.DeleteStockList(selectedID)
+					if err != nil {
+						m.displayStockList.Error = fmt.Sprintf("Failed to delete '%s': %v", m.displayStockList.StockList.Name, err)
+					} else {
+						m.displayStockList.SuccessMessage = fmt.Sprintf("'%s' deleted successfully", m.displayStockList.StockList.Name)
+						m.displayStockList.DeleteList = true
+						m.state = StockListState
+						m.displayStockList.SuccessMessage = ""
+						m.displayStockList.DeleteList  = false
+					}
+					return m, cmd
 				}
 			}
 		}

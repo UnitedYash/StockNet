@@ -19,7 +19,6 @@ type DeleteStockFromList struct {
 	User        	*auth.User
 	StockList		StockList
 	Error      		string
-	SuccessMessage  string
 	StockHoldings	[]StockListHolding
 	Selected		int
 	Loading			bool
@@ -37,7 +36,6 @@ func NewDeleteStockFromListPage(stockList StockList, user *auth.User) *DeleteSto
 		Selected: 		0,
 		StockList:		stockList,
 		Error:			"",
-		SuccessMessage:	"",
 		StockHoldings:	[]StockListHolding{},
 		Loading:		true,
 	}
