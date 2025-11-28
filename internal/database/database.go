@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -47,7 +48,7 @@ type Service interface {
 
 	// Cache management methods
 	GetStatisticCache(ctx context.Context, portfolioID int, statsType, interval, symbol string) (interface{}, error)
-	SetStatisticCache(ctx context.Context, portfolioID int, statsType, interval, symbol, metricSymbol string, value float64, matrixJSON *string, latestDate time.Time) error
+	SetStatisticCache(ctx context.Context, portfolioID int, statsType, interval, symbol string, value float64, matrixJSON *string, latestDate time.Time) error
 	InvalidatePortfolioCache(ctx context.Context, portfolioID int) error
 	InvalidatePortfolioStockCache(ctx context.Context, symbol string) error
 
@@ -62,6 +63,16 @@ type Service interface {
 	GetCovarianceMatrix(ctx context.Context, portfolioID int, timeInterval string) (map[string]map[string]float64, error)
 	// Returns predicted future prices for a stock using linear regression
 	GetPricePredictions(ctx context.Context, symbol string, daysAhead int) ([]PricePrediction, error)
+
+	// Stock list statistics methods
+	// Returns coefficient of variation for each stock in a stock list over a time interval
+	GetCOVForStockList(ctx context.Context, stockListID int, timeInterval string) (map[string]float64, error)
+	// Returns beta for each stock in a stock list (correlation with other stocks in list)
+	GetBetaForStockList(ctx context.Context, stockListID int, timeInterval string) (map[string]float64, error)
+	// Returns correlation matrix for all stocks in a stock list over a time interval
+	GetCorrelationMatrixForStockList(ctx context.Context, stockListID int, timeInterval string) (map[string]map[string]float64, error)
+	// Returns covariance matrix for all stocks in a stock list over a time interval
+	GetCovarianceMatrixForStockList(ctx context.Context, stockListID int, timeInterval string) (map[string]map[string]float64, error)
 }
 
 // PricePrediction represents a predicted price point
@@ -426,7 +437,8 @@ func (s *service) GetStatisticCache(ctx context.Context, portfolioID int, statsT
 
 	err := s.db.QueryRowContext(ctx,
 		`SELECT value, matrix_json FROM portfolio_statistics_cache
-		 WHERE portfolio_id = $1 AND statistic_type = $2 AND time_interval = $3 AND symbol = $4 AND metric_symbol IS NULL
+		 WHERE portfolio_id = $1 AND statistic_type = $2 AND time_interval = $3 AND symbol = $4
+		 ORDER BY computed_at DESC
 		 LIMIT 1`,
 		portfolioID, statsType, interval, symbol,
 	).Scan(&value, &matrixJSON)
@@ -450,22 +462,14 @@ func (s *service) GetStatisticCache(ctx context.Context, portfolioID int, statsT
 }
 
 // SetStatisticCache stores a computed statistic in the cache
-func (s *service) SetStatisticCache(ctx context.Context, portfolioID int, statsType, interval, symbol, metricSymbol string, value float64, matrixJSON *string, latestDate time.Time) error {
-	// Handle empty symbol as empty string for matrices
-	if symbol == "" {
-		symbol = ""
-	}
-	if metricSymbol == "" {
-		metricSymbol = sql.NullString{}.String
-	}
-
+func (s *service) SetStatisticCache(ctx context.Context, portfolioID int, statsType, interval, symbol string, value float64, matrixJSON *string, latestDate time.Time) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO portfolio_statistics_cache
-		 (portfolio_id, statistic_type, time_interval, symbol, metric_symbol, value, matrix_json, latest_data_date)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		 ON CONFLICT (portfolio_id, statistic_type, time_interval, symbol, metric_symbol)
-		 DO UPDATE SET value = $6, matrix_json = $7, computed_at = CURRENT_TIMESTAMP, latest_data_date = $8`,
-		portfolioID, statsType, interval, symbol, metricSymbol, value, matrixJSON, latestDate,
+		 (portfolio_id, statistic_type, time_interval, symbol, value, matrix_json, latest_data_date)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 ON CONFLICT (portfolio_id, statistic_type, time_interval, symbol)
+		 DO UPDATE SET value = $5, matrix_json = $6, computed_at = CURRENT_TIMESTAMP, latest_data_date = $7`,
+		portfolioID, statsType, interval, symbol, value, matrixJSON, latestDate,
 	)
 
 	if err != nil {
@@ -544,8 +548,54 @@ func (s *service) getLatestDateForPortfolio(ctx context.Context, portfolioID int
 	return *latestDate, nil
 }
 
+// getAlignedPricesQuery returns a SQL query template for calculating pairwise metrics
+// metric should be the aggregation function like "CORR(c1, c2) as correlation" or "COVAR_POP(c1, c2) as covariance"
+func getAlignedPricesQuery(metric string, dateRange string) string {
+	return `
+	WITH prices1 AS (
+	  SELECT timestamp, close FROM Stocks
+	  WHERE symbol = $1 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
+	),
+	prices2 AS (
+	  SELECT timestamp, close FROM Stocks
+	  WHERE symbol = $2 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
+	),
+	aligned AS (
+	  SELECT p1.close as c1, p2.close as c2
+	  FROM prices1 p1
+	  INNER JOIN prices2 p2 ON p1.timestamp = p2.timestamp
+	)
+	SELECT ` + metric + `
+	FROM aligned`
+}
+
+// calculatePairwiseMatrix calculates a pairwise matrix between all pairs of symbols
+// queryBuilder is a function that returns the SQL query for calculating a metric between two symbols
+func (s *service) calculatePairwiseMatrix(ctx context.Context, symbols []string, latestDate time.Time, queryBuilder func(s1, s2 string) string) (map[string]map[string]float64, error) {
+	matrix := make(map[string]map[string]float64)
+	for _, s1 := range symbols {
+		matrix[s1] = make(map[string]float64)
+		for _, s2 := range symbols {
+			query := queryBuilder(s1, s2)
+			var value float64
+			err := s.db.QueryRowContext(ctx, query, s1, s2, latestDate).Scan(&value)
+			if err != nil && err != sql.ErrNoRows {
+				value = 0
+			}
+			matrix[s1][s2] = value
+		}
+	}
+	return matrix, nil
+}
+
 // GetCOV calculates coefficient of variation for a stock over a time interval
 func (s *service) GetCOV(ctx context.Context, portfolioID int, symbol, timeInterval string) (float64, error) {
+	// Try to get from cache first
+	cached, err := s.GetStatisticCache(ctx, portfolioID, "cov", timeInterval, symbol)
+	if err == nil && cached != nil {
+		return cached.(float64), nil
+	}
+
 	// Get the latest date from portfolio data
 	latestDate, err := s.getLatestDateForPortfolio(ctx, portfolioID)
 	if err != nil {
@@ -576,13 +626,19 @@ func (s *service) GetCOV(ctx context.Context, portfolioID int, symbol, timeInter
 	}
 
 	// Cache the result
-	s.SetStatisticCache(ctx, portfolioID, "cov", timeInterval, symbol, "", cov, nil, latestDate)
+	s.SetStatisticCache(ctx, portfolioID, "cov", timeInterval, symbol, cov, nil, latestDate)
 
 	return cov, nil
 }
 
 // GetBeta calculates correlation of a stock with all other stocks in stocks table
 func (s *service) GetBeta(ctx context.Context, portfolioID int, symbol, timeInterval string) (float64, error) {
+	// Try to get from cache first
+	cached, err := s.GetStatisticCache(ctx, portfolioID, "beta", timeInterval, symbol)
+	if err == nil && cached != nil {
+		return cached.(float64), nil
+	}
+
 	// Get the latest date from portfolio data
 	latestDate, err := s.getLatestDateForPortfolio(ctx, portfolioID)
 	if err != nil {
@@ -635,13 +691,25 @@ func (s *service) GetBeta(ctx context.Context, portfolioID int, symbol, timeInte
 	}
 
 	// Cache the result
-	s.SetStatisticCache(ctx, portfolioID, "beta", timeInterval, symbol, "", beta, nil, latestDate)
+	s.SetStatisticCache(ctx, portfolioID, "beta", timeInterval, symbol, beta, nil, latestDate)
 
 	return beta, nil
 }
 
 // GetCorrelationMatrix calculates correlation between all pairs of stocks
 func (s *service) GetCorrelationMatrix(ctx context.Context, portfolioID int, timeInterval string) (map[string]map[string]float64, error) {
+	// Try to get from cache first
+	cached, err := s.GetStatisticCache(ctx, portfolioID, "correlation_matrix", timeInterval, "")
+	if err == nil && cached != nil {
+		// Cache returns JSON string, unmarshal it
+		if jsonStr, ok := cached.(string); ok {
+			var matrix map[string]map[string]float64
+			if err := json.Unmarshal([]byte(jsonStr), &matrix); err == nil {
+				return matrix, nil
+			}
+		}
+	}
+
 	// Get the latest date from portfolio data
 	latestDate, err := s.getLatestDateForPortfolio(ctx, portfolioID)
 	if err != nil {
@@ -676,53 +744,48 @@ func (s *service) GetCorrelationMatrix(ctx context.Context, portfolioID int, tim
 		return make(map[string]map[string]float64), nil
 	}
 
-	// Calculate pairwise correlations
-	matrix := make(map[string]map[string]float64)
-	for _, s1 := range symbols {
-		matrix[s1] = make(map[string]float64)
-		for _, s2 := range symbols {
-			if s1 == s2 {
-				matrix[s1][s2] = 1.0 // Correlation with self is always 1
-				continue
-			}
-
-			// Calculate correlation between s1 and s2
-			corrQuery := `
-			WITH prices1 AS (
-			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $1 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			),
-			prices2 AS (
-			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $2 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			),
-			aligned AS (
-			  SELECT p1.close as c1, p2.close as c2
-			  FROM prices1 p1
-			  INNER JOIN prices2 p2 ON p1.timestamp = p2.timestamp
-			)
-			SELECT CASE
-			  WHEN STDDEV_POP(c1) = 0 OR STDDEV_POP(c2) = 0 THEN 0
-			  WHEN COUNT(*) < 2 THEN 0
-			  ELSE COVAR_POP(c1, c2) / (STDDEV_POP(c1) * STDDEV_POP(c2))
-			END as correlation
-			FROM aligned`
-
-			var corr float64
-			err := s.db.QueryRowContext(ctx, corrQuery, s1, s2, latestDate).Scan(&corr)
-			if err != nil && err != sql.ErrNoRows {
-				corr = 0 // Default to 0 if calculation fails
-			}
-
-			matrix[s1][s2] = corr
-		}
+	// Calculate pairwise correlations using helper
+	queryBuilder := func(s1, s2 string) string {
+		metric := `CASE
+		  WHEN STDDEV_POP(c1) = 0 OR STDDEV_POP(c2) = 0 THEN 0
+		  WHEN COUNT(*) < 2 THEN 0
+		  ELSE COVAR_POP(c1, c2) / (STDDEV_POP(c1) * STDDEV_POP(c2))
+		END as correlation`
+		return getAlignedPricesQuery(metric, dateRange)
 	}
+
+	matrix, err := s.calculatePairwiseMatrix(ctx, symbols, latestDate, queryBuilder)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set diagonal to 1 (correlation with self is always 1)
+	for _, symbol := range symbols {
+		matrix[symbol][symbol] = 1.0
+	}
+
+	// Convert matrix to JSON for caching
+	matrixJSON, _ := json.Marshal(matrix)
+	matrixJSONStr := string(matrixJSON)
+	s.SetStatisticCache(ctx, portfolioID, "correlation_matrix", timeInterval, "", 0, &matrixJSONStr, latestDate)
 
 	return matrix, nil
 }
 
 // GetCovarianceMatrix calculates covariance between all pairs of stocks
 func (s *service) GetCovarianceMatrix(ctx context.Context, portfolioID int, timeInterval string) (map[string]map[string]float64, error) {
+	// Try to get from cache first
+	cached, err := s.GetStatisticCache(ctx, portfolioID, "covariance_matrix", timeInterval, "")
+	if err == nil && cached != nil {
+		// Cache returns JSON string, unmarshal it
+		if jsonStr, ok := cached.(string); ok {
+			var matrix map[string]map[string]float64
+			if err := json.Unmarshal([]byte(jsonStr), &matrix); err == nil {
+				return matrix, nil
+			}
+		}
+	}
+
 	// Get the latest date from portfolio data
 	latestDate, err := s.getLatestDateForPortfolio(ctx, portfolioID)
 	if err != nil {
@@ -757,38 +820,21 @@ func (s *service) GetCovarianceMatrix(ctx context.Context, portfolioID int, time
 		return make(map[string]map[string]float64), nil
 	}
 
-	// Calculate pairwise covariances
-	matrix := make(map[string]map[string]float64)
-	for _, s1 := range symbols {
-		matrix[s1] = make(map[string]float64)
-		for _, s2 := range symbols {
-			// Calculate covariance between s1 and s2
-			covQuery := `
-			WITH prices1 AS (
-			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $1 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			),
-			prices2 AS (
-			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $2 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			),
-			aligned AS (
-			  SELECT p1.close as c1, p2.close as c2
-			  FROM prices1 p1
-			  INNER JOIN prices2 p2 ON p1.timestamp = p2.timestamp
-			)
-			SELECT COVAR_POP(c1, c2) as covariance
-			FROM aligned`
-
-			var cov float64
-			err := s.db.QueryRowContext(ctx, covQuery, s1, s2, latestDate).Scan(&cov)
-			if err != nil && err != sql.ErrNoRows {
-				cov = 0 // Default to 0 if calculation fails
-			}
-
-			matrix[s1][s2] = cov
-		}
+	// Calculate pairwise covariances using helper
+	queryBuilder := func(s1, s2 string) string {
+		metric := "COVAR_POP(c1, c2) as covariance"
+		return getAlignedPricesQuery(metric, dateRange)
 	}
+
+	matrix, err := s.calculatePairwiseMatrix(ctx, symbols, latestDate, queryBuilder)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert matrix to JSON for caching
+	matrixJSON, _ := json.Marshal(matrix)
+	matrixJSONStr := string(matrixJSON)
+	s.SetStatisticCache(ctx, portfolioID, "covariance_matrix", timeInterval, "", 0, &matrixJSONStr, latestDate)
 
 	return matrix, nil
 }
@@ -879,4 +925,249 @@ func (s *service) GetPricePredictions(ctx context.Context, symbol string, daysAh
 	}
 
 	return predictions, nil
+}
+
+// GetCOVForStockList calculates COV (coefficient of variation) for each stock in a stock list
+func (s *service) GetCOVForStockList(ctx context.Context, stockListID int, timeInterval string) (map[string]float64, error) {
+	// Get the latest date where all stocks in the stock list have data
+	var latestDate *time.Time
+	dateQuery := `
+	SELECT MIN(max_date) FROM (
+		SELECT MAX(s.timestamp) as max_date FROM Stocks s
+		WHERE s.symbol IN (SELECT symbol FROM hasstockfromstocklist WHERE stocklist_id = $1)
+		GROUP BY s.symbol
+	) as stock_dates`
+	err := s.db.QueryRowContext(ctx, dateQuery, stockListID).Scan(&latestDate)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to get latest date: %w", err)
+	}
+	if latestDate == nil {
+		return nil, fmt.Errorf("no stock data available for this stock list")
+	}
+
+	dateRange := getDateRangeForInterval(timeInterval)
+
+	// Get all stock symbols in this stock list
+	query := `SELECT symbol FROM hasstockfromstocklist WHERE stocklist_id = $1`
+	rows, err := s.db.QueryContext(ctx, query, stockListID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stock list symbols: %w", err)
+	}
+	defer rows.Close()
+
+	var symbols []string
+	for rows.Next() {
+		var symbol string
+		if err := rows.Scan(&symbol); err != nil {
+			return nil, err
+		}
+		symbols = append(symbols, symbol)
+	}
+
+	if len(symbols) == 0 {
+		return make(map[string]float64), nil
+	}
+
+	// Calculate COV for each symbol using selected time interval from latest date
+	covResults := make(map[string]float64)
+	for _, symbol := range symbols {
+		covQuery := `
+		WITH prices AS (
+		  SELECT close FROM Stocks
+		  WHERE symbol = $1 AND timestamp >= $2::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $2::timestamp AND close IS NOT NULL
+		)
+		SELECT
+		  STDDEV_POP(close) / AVG(close) as cov
+		FROM prices`
+
+		var cov float64
+		err := s.db.QueryRowContext(ctx, covQuery, symbol, latestDate).Scan(&cov)
+		if err != nil && err != sql.ErrNoRows {
+			cov = 0
+		}
+		covResults[symbol] = cov
+	}
+
+	return covResults, nil
+}
+
+// GetBetaForStockList calculates Beta for each stock in a stock list (correlation with market)
+func (s *service) GetBetaForStockList(ctx context.Context, stockListID int, timeInterval string) (map[string]float64, error) {
+	// Get the latest date where all stocks in the stock list have data
+	var latestDate *time.Time
+	dateQuery := `
+	SELECT MIN(max_date) FROM (
+		SELECT MAX(s.timestamp) as max_date FROM Stocks s
+		WHERE s.symbol IN (SELECT symbol FROM hasstockfromstocklist WHERE stocklist_id = $1)
+		GROUP BY s.symbol
+	) as stock_dates`
+	err := s.db.QueryRowContext(ctx, dateQuery, stockListID).Scan(&latestDate)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to get latest date: %w", err)
+	}
+	if latestDate == nil {
+		return nil, fmt.Errorf("no stock data available for this stock list")
+	}
+
+	dateRange := getDateRangeForInterval(timeInterval)
+
+	// Get all stock symbols in this stock list
+	query := `SELECT symbol FROM hasstockfromstocklist WHERE stocklist_id = $1`
+	rows, err := s.db.QueryContext(ctx, query, stockListID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stock list symbols: %w", err)
+	}
+	defer rows.Close()
+
+	var symbols []string
+	for rows.Next() {
+		var symbol string
+		if err := rows.Scan(&symbol); err != nil {
+			return nil, err
+		}
+		symbols = append(symbols, symbol)
+	}
+
+	if len(symbols) == 0 {
+		return make(map[string]float64), nil
+	}
+
+	betaResults := make(map[string]float64)
+	for _, s1 := range symbols {
+		// Beta = Cov(stock, market) / Var(market)
+		// Market is the average of all stocks in the Stocks table, only for dates within the selected time interval
+		betaQuery := `
+		WITH target_prices AS (
+		  SELECT timestamp, close FROM Stocks
+		  WHERE symbol = $1 AND timestamp >= $2::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $2::timestamp
+		),
+		market_prices AS (
+		  SELECT timestamp, AVG(close) as market_close
+		  FROM Stocks
+		  WHERE timestamp IN (SELECT timestamp FROM target_prices)
+		  GROUP BY timestamp
+		),
+		aligned_data AS (
+		  SELECT
+		    t.close as stock_close,
+		    m.market_close
+		  FROM target_prices t
+		  INNER JOIN market_prices m ON t.timestamp = m.timestamp
+		)
+		SELECT CASE
+		  WHEN COUNT(*) = 0 THEN 0
+		  WHEN VARIANCE(market_close) = 0 THEN 0
+		  ELSE COVAR_POP(stock_close, market_close) / VARIANCE(market_close)
+		END as beta
+		FROM aligned_data`
+
+		var beta float64
+		err := s.db.QueryRowContext(ctx, betaQuery, s1, latestDate).Scan(&beta)
+		if err != nil && err != sql.ErrNoRows {
+			beta = 0
+		}
+		betaResults[s1] = beta
+	}
+
+	return betaResults, nil
+}
+
+// GetCorrelationMatrixForStockList calculates correlation between all pairs of stocks in a stock list
+func (s *service) GetCorrelationMatrixForStockList(ctx context.Context, stockListID int, timeInterval string) (map[string]map[string]float64, error) {
+	// Get the latest date where all stocks in the stock list have data
+	var latestDate *time.Time
+	dateQuery := `
+	SELECT MIN(max_date) FROM (
+		SELECT MAX(s.timestamp) as max_date FROM Stocks s
+		WHERE s.symbol IN (SELECT symbol FROM hasstockfromstocklist WHERE stocklist_id = $1)
+		GROUP BY s.symbol
+	) as stock_dates`
+	err := s.db.QueryRowContext(ctx, dateQuery, stockListID).Scan(&latestDate)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to get latest date: %w", err)
+	}
+	if latestDate == nil {
+		return nil, fmt.Errorf("no stock data available for this stock list")
+	}
+
+	dateRange := getDateRangeForInterval(timeInterval)
+
+	// Get all stock symbols in this stock list
+	query := `SELECT symbol FROM hasstockfromstocklist WHERE stocklist_id = $1`
+	rows, err := s.db.QueryContext(ctx, query, stockListID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stock list symbols: %w", err)
+	}
+	defer rows.Close()
+
+	var symbols []string
+	for rows.Next() {
+		var symbol string
+		if err := rows.Scan(&symbol); err != nil {
+			return nil, err
+		}
+		symbols = append(symbols, symbol)
+	}
+
+	if len(symbols) == 0 {
+		return make(map[string]map[string]float64), nil
+	}
+
+	// Calculate pairwise correlations using helper
+	queryBuilder := func(s1, s2 string) string {
+		metric := "CORR(c1, c2) as correlation"
+		return getAlignedPricesQuery(metric, dateRange)
+	}
+
+	return s.calculatePairwiseMatrix(ctx, symbols, *latestDate, queryBuilder)
+}
+
+// GetCovarianceMatrixForStockList calculates covariance between all pairs of stocks in a stock list
+func (s *service) GetCovarianceMatrixForStockList(ctx context.Context, stockListID int, timeInterval string) (map[string]map[string]float64, error) {
+	// Get the latest date where all stocks in the stock list have data
+	var latestDate *time.Time
+	dateQuery := `
+	SELECT MIN(max_date) FROM (
+		SELECT MAX(s.timestamp) as max_date FROM Stocks s
+		WHERE s.symbol IN (SELECT symbol FROM hasstockfromstocklist WHERE stocklist_id = $1)
+		GROUP BY s.symbol
+	) as stock_dates`
+	err := s.db.QueryRowContext(ctx, dateQuery, stockListID).Scan(&latestDate)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to get latest date: %w", err)
+	}
+	if latestDate == nil {
+		return nil, fmt.Errorf("no stock data available for this stock list")
+	}
+
+	dateRange := getDateRangeForInterval(timeInterval)
+
+	// Get all stock symbols in this stock list
+	query := `SELECT symbol FROM hasstockfromstocklist WHERE stocklist_id = $1`
+	rows, err := s.db.QueryContext(ctx, query, stockListID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stock list symbols: %w", err)
+	}
+	defer rows.Close()
+
+	var symbols []string
+	for rows.Next() {
+		var symbol string
+		if err := rows.Scan(&symbol); err != nil {
+			return nil, err
+		}
+		symbols = append(symbols, symbol)
+	}
+
+	if len(symbols) == 0 {
+		return make(map[string]map[string]float64), nil
+	}
+
+	// Calculate pairwise covariances using helper
+	queryBuilder := func(s1, s2 string) string {
+		metric := "COVAR_POP(c1, c2) as covariance"
+		return getAlignedPricesQuery(metric, dateRange)
+	}
+
+	return s.calculatePairwiseMatrix(ctx, symbols, *latestDate, queryBuilder)
 }

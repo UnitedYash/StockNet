@@ -63,90 +63,122 @@ const (
 	EditStockListState				// 34
 	HoldingDetailsState				// 35
 	HoldingForecastState			// 36
+	AddStockToListState				// 37
+	DeleteStockFromListState		// 38
+	ViewListHoldingsState			// 39
+	ViewStockListStatisticsState	// 40
+	ViewPublicListsState			// 41
+	ShareStockListState				// 42
+	ViewSharedListsState			// 43
+	MainReviewState					// 44
+	WriteReviewState				// 45
+	ViewReviewsState				// 46
 )
 
 // AppModel is the root model for the entire app
 type AppModel struct {
-	state        		AppState
-	currentUser 		auth.User // currently logged-in user
-	mainMenu    		*shared.MainMenuModel
-	login       		*tuiauth.LoginModel
-	register    		*tuiauth.RegisterModel
-	homepage    		*shared.HomePageModel
-	portfolio			*portfolio.PortfolioModel
-	viewPortfolios		*portfolio.ViewPortfoliosModel
-	createPortfolio		*portfolio.CreatePortfolioModel
-	stockList			*stocklist.StockListModel
-	stockAnalysis 		*stock.StockAnalysisModel
-	social				*shared.SocialModel
-	currentStocks		*stock.CurrentStocksModel
-	searchStock			*stock.SearchStockModel
-	stockDetails		*stock.StockDetailsModel
-	sendFriReq			*friends.SendFriReqModel
-	viewFriReq			*friends.ViewFriReqModel
-	incFriReq			*friends.IncFriReqModel
-	outFriReq 			*friends.OutFriReqModel
-	viewSpecPortfolio	*portfolio.ViewSpecPortfolioModel
-	viewHoldings		*stock.ViewHoldingsModel
-	viewTransactions	*portfolio.ViewTransactionsModel
-	buyStockSearch		*stock.BuyStockSearchModel
-	buyStock			*stock.BuyStockModel
-	sellStockSearch		*stock.SellStockSearchModel
-	sellStock			*stock.SellStockModel
-	depositCash			*portfolio.DepositCashModel
-	withdrawCash		*portfolio.WithdrawCashModel
-	viewNetWorth		*portfolio.ViewNetWorthModel
-	manageFriends		*friends.ManageFriendsModel
-	createStockList		*stocklist.CreateStockListModel
-	viewMyStockList		*stocklist.ViewStockListsModel
-	displayStockList	*stocklist.DisplayStockListModel
-	searchStockForData	*stock.SearchStockForDataModel
-	addStockData		*stock.AddStockDataModel
-	viewPortfolioStats	*portfolio.ViewPortfolioStatisticsModel
-	editStockList		*stocklist.EditStockListModel
-	holdingDetails		*portfolio.HoldingDetailsModel
-	holdingForecast		*portfolio.HoldingForecastModel
+	state        			AppState
+	currentUser 			auth.User // currently logged-in user
+	mainMenu    			*shared.MainMenuModel
+	login       			*tuiauth.LoginModel
+	register    			*tuiauth.RegisterModel
+	homepage    			*shared.HomePageModel
+	portfolio				*portfolio.PortfolioModel
+	viewPortfolios			*portfolio.ViewPortfoliosModel
+	createPortfolio			*portfolio.CreatePortfolioModel
+	stockList				*stocklist.StockListModel
+	stockAnalysis 			*stock.StockAnalysisModel
+	social					*shared.SocialModel
+	currentStocks			*stock.CurrentStocksModel
+	searchStock				*stock.SearchStockModel
+	stockDetails			*stock.StockDetailsModel
+	sendFriReq				*friends.SendFriReqModel
+	viewFriReq				*friends.ViewFriReqModel
+	incFriReq				*friends.IncFriReqModel
+	outFriReq 				*friends.OutFriReqModel
+	viewSpecPortfolio		*portfolio.ViewSpecPortfolioModel
+	viewHoldings			*stock.ViewHoldingsModel
+	viewTransactions		*portfolio.ViewTransactionsModel
+	buyStockSearch			*stock.BuyStockSearchModel
+	buyStock				*stock.BuyStockModel
+	sellStockSearch			*stock.SellStockSearchModel
+	sellStock				*stock.SellStockModel
+	depositCash				*portfolio.DepositCashModel
+	withdrawCash			*portfolio.WithdrawCashModel
+	viewNetWorth			*portfolio.ViewNetWorthModel
+	manageFriends			*friends.ManageFriendsModel
+	createStockList			*stocklist.CreateStockListModel
+	viewMyStockList			*stocklist.ViewStockListsModel
+	displayStockList		*stocklist.DisplayStockListModel
+	searchStockForData		*stock.SearchStockForDataModel
+	addStockData			*stock.AddStockDataModel
+	viewPortfolioStats		*portfolio.ViewPortfolioStatisticsModel
+	editStockList			*stocklist.EditStockListModel
+	addStockToList			*stocklist.AddStockToListModel
+	deleteStockFromList		*stocklist.DeleteStockFromList
+	viewListHoldings		*stocklist.ViewListHoldingsModel
+	holdingDetails			*portfolio.HoldingDetailsModel
+	holdingForecast			*portfolio.HoldingForecastModel
+	stockListStatistics		*stocklist.ViewStockListStatisticsModel
+	viewPublicLists			*stocklist.ViewPublicListsModel	
+	shareStockList			*stocklist.ShareStockListModel
+	viewSharedLists			*stocklist.ViewSharedListsModel
+	mainReview   			*stocklist.MainReviewModel
+	writeReview				*stocklist.WriteReviewModel
+	viewReviews				*stocklist.ViewReviewsModel
 }
 
 // NewAppModel creates a new app model
 func NewAppModel() *AppModel {
 	return &AppModel{
-		state:     			MainMenuState,
-		mainMenu:  			shared.NewMainMenu(),
-		login:     			tuiauth.NewLogin(),
-		register:  			tuiauth.NewRegister(),
-		homepage:  			shared.NewHomePage(nil),
-		portfolio: 			portfolio.NewPortfolioPage(),
-		viewPortfolios:		portfolio.NewViewPortfoliosPageWithUserID(0), // Will be set with actual user ID
-		createPortfolio:	portfolio.NewCreatePortfolioPageWithUserID(0), // Will be set with actual user ID
-		stockList: 			stocklist.NewStockListPage(nil),
-		stockAnalysis: 		stock.NewStockAnalysisPage(),
-		social:				shared.NewSocialPage(nil),
-		currentStocks:		stock.NewCurrentStocksPage(),
-		searchStock:		stock.NewSearchStockPage(),
-		stockDetails:		nil,
-		sendFriReq:			friends.NewSendFriReqPage(nil),
-		viewFriReq:			friends.NewViewFriReqPage(nil),
-		incFriReq:			friends.NewIncFriReqPage(nil),
-		outFriReq:			friends.NewOutFriReqPage(nil),
-		viewSpecPortfolio:	nil,
-		viewHoldings:		nil,
-		viewTransactions:	nil,
-		buyStockSearch:		nil,
-		buyStock:			nil,
-		sellStockSearch:	nil,
-		sellStock:			nil,
-		depositCash:		nil,
-		withdrawCash:		nil,
-		viewNetWorth:		nil,
-		manageFriends:		friends.NewManageFriendsPage(nil),
-		createStockList:	stocklist.NewCreateStockListPage(nil),
-		viewMyStockList: 	stocklist.NewViewStockLists(nil),
-		displayStockList: 	stocklist.NewDisplayStockListPage(DefaultStockList, nil, 0),
-		searchStockForData:	stock.NewSearchStockForDataPage(),
-		addStockData:		nil,
-		viewPortfolioStats:	nil,
-		editStockList:		stocklist.NewEditStockListPage(DefaultStockList, nil), 
+		state:     				MainMenuState,
+		mainMenu:  				shared.NewMainMenu(),
+		login:     				tuiauth.NewLogin(),
+		register:  				tuiauth.NewRegister(),
+		homepage:  				shared.NewHomePage(nil),
+		portfolio: 				portfolio.NewPortfolioPage(),
+		viewPortfolios:			portfolio.NewViewPortfoliosPageWithUserID(0), // Will be set with actual user ID
+		createPortfolio:		portfolio.NewCreatePortfolioPageWithUserID(0), // Will be set with actual user ID
+		stockList: 				stocklist.NewStockListPage(nil),
+		stockAnalysis: 			stock.NewStockAnalysisPage(),
+		social:					shared.NewSocialPage(nil),
+		currentStocks:			stock.NewCurrentStocksPage(),
+		searchStock:			stock.NewSearchStockPage(),
+		stockDetails:			nil,
+		sendFriReq:				friends.NewSendFriReqPage(nil),
+		viewFriReq:				friends.NewViewFriReqPage(nil),
+		incFriReq:				friends.NewIncFriReqPage(nil),
+		outFriReq:				friends.NewOutFriReqPage(nil),
+		viewSpecPortfolio:		nil,
+		viewHoldings:			nil,
+		viewTransactions:		nil,
+		buyStockSearch:			nil,
+		buyStock:				nil,
+		sellStockSearch:		nil,
+		sellStock:				nil,
+		depositCash:			nil,
+		withdrawCash:			nil,
+		viewNetWorth:			nil,
+		manageFriends:			friends.NewManageFriendsPage(nil),
+		createStockList:		stocklist.NewCreateStockListPage(nil),
+		viewMyStockList: 		stocklist.NewViewStockLists(nil),
+		displayStockList: 		stocklist.NewDisplayStockListPage(DefaultStockList, nil, 0),
+		searchStockForData:		stock.NewSearchStockForDataPage(),
+		addStockData:			nil,
+		viewPortfolioStats:		nil,
+		editStockList:			stocklist.NewEditStockListPage(DefaultStockList, nil),
+		addStockToList:			stocklist.NewAddStockToListPage(DefaultStockList, nil),
+		deleteStockFromList:	stocklist.NewDeleteStockFromListPage(DefaultStockList, nil),
+		viewListHoldings:		stocklist.NewViewListHoldingsPage(DefaultStockList, nil),
+		holdingDetails:			nil,
+		holdingForecast:		nil,
+		stockListStatistics:	nil,
+		viewPublicLists:		stocklist.NewViewPublicListsPage(nil),
+		shareStockList:			stocklist.NewShareStockListPage(DefaultStockList, nil),
+		viewSharedLists:		stocklist.NewViewSharedListsPage(nil),
+		mainReview:				stocklist.NewMainReviewPage(DefaultStockList, nil),
+		writeReview:			stocklist.NewWriteReviewPage(DefaultStockList, nil),
+		viewReviews:			stocklist.NewViewReviewsPage(DefaultStockList, nil),
 	}
 }
 // returns intial command for the application to run
@@ -406,6 +438,14 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = ViewStockListsState
 					m.viewMyStockList = stocklist.NewViewStockLists(m.stockList.GetUser())
 					cmd = m.viewMyStockList.Init()
+				case "Public Stock Lists":
+					m.state = ViewPublicListsState
+					m.viewPublicLists = stocklist.NewViewPublicListsPage(m.stockList.GetUser())
+					cmd = m.viewPublicLists.Init()
+				case "Shared With Me":
+					m.state = ViewSharedListsState
+					m.viewSharedLists = stocklist.NewViewSharedListsPage(m.stockList.GetUser())
+					cmd = m.viewSharedLists.Init()
 				}
 			}
 		}
@@ -415,7 +455,52 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = HomePageState
 		}
 		return m, cmd
-
+	case ViewSharedListsState:
+		viewSharedLists, cmd := m.viewSharedLists.Update(msg)
+		m.viewSharedLists = viewSharedLists.(*stocklist.ViewSharedListsModel)
+		// Go back to stocklist page from shared stocklist page
+		if m.viewSharedLists.BackPressed {
+			m.viewSharedLists.BackPressed = false
+			m.state = StockListState
+		}
+		if m.viewSharedLists.Selected >= 0 && m.viewSharedLists.Selected < len(m.viewSharedLists.StockLists) {
+			selectedStockList := m.viewSharedLists.StockLists[m.viewSharedLists.Selected]
+			if m.viewSharedLists.Confirmed {
+				m.viewSharedLists.Confirmed = false
+				currentUser := m.stockList.GetUser()
+				m.displayStockList = stocklist.NewDisplayStockListPage(
+            		selectedStockList,
+            		currentUser,
+            		selectedStockList.UserID,   
+       			)
+				m.state = DisplayStockListState
+				return m, nil
+			}
+		}
+		return m, cmd
+	case ViewPublicListsState:
+		viewPublicLists, cmd := m.viewPublicLists.Update(msg)
+		m.viewPublicLists = viewPublicLists.(*stocklist.ViewPublicListsModel)
+		// Go back to stocklist page from viewing public stocking list page
+		if m.viewPublicLists.BackPressed {
+			m.viewPublicLists.BackPressed = false
+			m.state = StockListState
+		}
+		if m.viewPublicLists.Selected >= 0 && m.viewPublicLists.Selected < len(m.viewPublicLists.StockLists) {
+			selectedStockList := m.viewPublicLists.StockLists[m.viewPublicLists.Selected]
+			if m.viewPublicLists.Confirmed {
+				m.viewPublicLists.Confirmed = false
+				currentUser := m.stockList.GetUser()
+				m.displayStockList = stocklist.NewDisplayStockListPage(
+            		selectedStockList,
+            		currentUser,
+            		selectedStockList.UserID,   
+       			)
+				m.state = DisplayStockListState
+				return m, nil
+			}
+		}
+		return m, cmd
 	case CreateStockListState:
 		createStockList, cmd := m.createStockList.Update(msg)
 		m.createStockList = createStockList.(*stocklist.CreateStockListModel)
@@ -467,8 +552,101 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "Edit List":
 					m.state = EditStockListState
 					m.editStockList = stocklist.NewEditStockListPage(m.displayStockList.StockList, m.stockList.GetUser())
+				case "View Stocks":
+					m.state = ViewListHoldingsState
+					m.viewListHoldings = stocklist.NewViewListHoldingsPage(m.displayStockList.StockList, m.stockList.GetUser())
+					cmd = m.viewListHoldings.Init()
+				case "Delete List":
+					selectedID := m.displayStockList.StockList.StockListID
+					err := stocklist.DeleteStockList(selectedID)
+					if err != nil {
+						m.displayStockList.Error = fmt.Sprintf("Failed to delete '%s': %v", m.displayStockList.StockList.Name, err)
+					} else {
+						m.displayStockList.SuccessMessage = fmt.Sprintf("'%s' deleted successfully", m.displayStockList.StockList.Name)
+						m.displayStockList.DeleteList = true
+						m.state = StockListState
+						m.displayStockList.SuccessMessage = ""
+						m.displayStockList.DeleteList  = false
+					}
+					return m, cmd
+				case "Share":
+					m.state = ShareStockListState
+					m.shareStockList = stocklist.NewShareStockListPage(m.displayStockList.StockList, m.stockList.GetUser())
+				case "Reviews":
+					m.state = MainReviewState
+					m.mainReview = stocklist.NewMainReviewPage(m.displayStockList.StockList, m.stockList.GetUser())
 				}
 			}
+		}
+		return m, cmd
+	case MainReviewState:
+		mainReview, cmd := m.mainReview.Update(msg)
+		m.mainReview = mainReview.(*stocklist.MainReviewModel)
+		// Go back to display stock list page from main review page
+		if m.mainReview.BackPressed {
+			m.mainReview.BackPressed = false
+			m.state = DisplayStockListState
+		}
+		if m.mainReview.Selected >= 0 && m.mainReview.Selected < len(m.mainReview.Options) {
+			option := m.mainReview.Options[m.mainReview.Selected]
+			if m.mainReview.Confirmed {
+				m.mainReview.Confirmed = false
+				switch option {
+				case "Write/Edit Review":
+					m.state = WriteReviewState
+					m.writeReview = stocklist.NewWriteReviewPage(m.mainReview.StockList, m.mainReview.User)
+				case "View Reviews":
+					m.state = ViewReviewsState
+					m.viewReviews = stocklist.NewViewReviewsPage(m.mainReview.StockList, m.mainReview.User)
+					cmd = m.viewReviews.Init()
+				}
+			}
+		}
+		return m, cmd
+	case ViewReviewsState:
+		viewReviews, cmd := m.viewReviews.Update(msg)
+		m.viewReviews = viewReviews.(*stocklist.ViewReviewsModel)
+		// Go back to main review page from write reviews
+		if m.viewReviews.BackPressed {
+			m.viewReviews.BackPressed = false
+			m.state = MainReviewState
+		}
+		return m, cmd
+
+	case WriteReviewState:
+		writeReview, cmd := m.writeReview.Update(msg)
+		m.writeReview = writeReview.(*stocklist.WriteReviewModel)
+		// Go back to main review page from write reviews
+		if m.writeReview.BackPressed {
+			m.writeReview.BackPressed = false
+			m.state = MainReviewState
+		}
+		return m, cmd
+
+	case ShareStockListState:
+		shareStockList, cmd := m.shareStockList.Update(msg)
+		m.shareStockList = shareStockList.(*stocklist.ShareStockListModel)
+		// Go back to display stock list page from share page
+		if m.shareStockList.BackPressed {
+			m.shareStockList.BackPressed = false
+			m.state = DisplayStockListState
+		}
+		return m, cmd
+
+	case ViewListHoldingsState:
+		viewListHoldings, cmd := m.viewListHoldings.Update(msg)
+		m.viewListHoldings = viewListHoldings.(*stocklist.ViewListHoldingsModel)
+		// Go back to display stock list page from view stock holdings page
+		if m.viewListHoldings.BackPressed {
+			m.viewListHoldings.BackPressed = false
+			m.state = DisplayStockListState
+		}
+		// Go to stock list statistics
+		if m.viewListHoldings.ViewStatsPressed {
+			m.viewListHoldings.ViewStatsPressed = false
+			m.state = ViewStockListStatisticsState
+			m.stockListStatistics = stocklist.NewViewStockListStatisticsPage(m.viewListHoldings.StockList.StockListID)
+			cmd = m.stockListStatistics.Init()
 		}
 		return m, cmd
 	case EditStockListState:
@@ -478,6 +656,40 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.editStockList.BackPressed {
 			m.editStockList.BackPressed = false
 			m.state = DisplayStockListState
+		}
+		if m.editStockList.Selected >= 0 && m.editStockList.Selected < len(m.editStockList.Options) {
+			option := m.editStockList.Options[m.editStockList.Selected]
+			if m.editStockList.Confirmed {
+				m.editStockList.Confirmed = false
+				switch option {
+				case "Add/Update Stock":
+					m.state = AddStockToListState
+					m.addStockToList = stocklist.NewAddStockToListPage(m.editStockList.StockList, m.stockList.GetUser())
+				case "Delete Stock":
+					m.state = DeleteStockFromListState
+					m.deleteStockFromList = stocklist.NewDeleteStockFromListPage(m.editStockList.StockList, m.stockList.GetUser())
+					cmd = m.deleteStockFromList.Init()
+				}
+			}
+		}
+		return m, cmd
+	case AddStockToListState:
+		addStockToList, cmd := m.addStockToList.Update(msg)
+		m.addStockToList = addStockToList.(*stocklist.AddStockToListModel)
+		// Go back to edit stock list page from add stock 
+		if m.addStockToList.BackPressed {
+			m.addStockToList.BackPressed = false
+			m.state = EditStockListState
+		}
+		return m, cmd
+
+	case DeleteStockFromListState:
+		deleteStockFromList, cmd := m.deleteStockFromList.Update(msg)
+		m.deleteStockFromList = deleteStockFromList.(*stocklist.DeleteStockFromList)
+		// Go back to edit stock list page from delete stock 
+		if m.deleteStockFromList.BackPressed {
+			m.deleteStockFromList.BackPressed = false
+			m.state = EditStockListState
 		}
 		return m, cmd
 
@@ -599,6 +811,17 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.holdingForecast.BackPressed {
 			m.holdingForecast.BackPressed = false
 			m.state = HoldingDetailsState
+		}
+		return m, cmd
+
+	case ViewStockListStatisticsState:
+		stockListStats, cmd := m.stockListStatistics.Update(msg)
+		m.stockListStatistics = stockListStats.(*stocklist.ViewStockListStatisticsModel)
+
+		// Go back to view list holdings
+		if m.stockListStatistics.BackPressed {
+			m.stockListStatistics.BackPressed = false
+			m.state = ViewListHoldingsState
 		}
 		return m, cmd
 
@@ -1144,10 +1367,30 @@ func (m *AppModel) View() string {
 		return m.displayStockList.View()
 	case EditStockListState:
 		return m.editStockList.View()
+	case AddStockToListState:
+		return m.addStockToList.View()
+	case DeleteStockFromListState:
+		return m.deleteStockFromList.View()
+	case ViewListHoldingsState:
+		return m.viewListHoldings.View()
 	case HoldingDetailsState:
 		return m.holdingDetails.View()
 	case HoldingForecastState:
 		return m.holdingForecast.View()
+	case ViewStockListStatisticsState:
+		return m.stockListStatistics.View()
+	case ViewPublicListsState:
+		return m.viewPublicLists.View()
+	case ShareStockListState:
+		return m.shareStockList.View()
+	case ViewSharedListsState:
+		return m.viewSharedLists.View()
+	case MainReviewState:
+		return m.mainReview.View()
+	case WriteReviewState:
+		return m.writeReview.View()
+	case ViewReviewsState:
+		return m.viewReviews.View()
 	}
 	return ""
 }

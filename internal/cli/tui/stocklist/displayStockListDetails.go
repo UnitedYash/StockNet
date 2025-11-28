@@ -5,6 +5,8 @@ import (
 	"StockNet/internal/cli/tui/styles"
 	"StockNet/internal/auth"
 	"fmt"
+	"StockNet/internal/database"
+
 )
 
 // Model for a displaying stocklist
@@ -13,10 +15,12 @@ type DisplayStockListModel struct {
     Selected    	int
     BackPressed 	bool
     Error       	string
+	SuccessMessage	string
 	User        	*auth.User	
 	OwnerUserID 	uint32
 	Options			[]string
 	Confirmed		bool
+	DeleteList		bool
 }
 
 // returns initial displaying  list model
@@ -26,14 +30,16 @@ func NewDisplayStockListPage(stockList StockList, user *auth.User, OwnerID uint3
 		Selected:		0,
 		BackPressed:	false,
 		Error:			"",
+		SuccessMessage:	"",
 		User:			user,
 		OwnerUserID:	OwnerID,
+		DeleteList:		false,
 	}
 	// if the current user is the owner of the stocklist, give edit and delete options
 	if user != nil && user.UserID == OwnerID {
-		model.Options = []string{"View Stocks", "Edit List", "View Statistics", "Reviews", "Share", "Delete List"}
+		model.Options = []string{"View Stocks", "Edit List", "Reviews", "Share", "Toggle Visibility", "Delete List"}
 	} else {
-		model.Options = []string{"View Stocks", "View Statistics", "Reviews", "Share"}
+		model.Options = []string{"View Stocks", "Reviews"}
 	}
 
 	return model
@@ -68,6 +74,18 @@ func (m *DisplayStockListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			m.Confirmed = true
+			option := m.Options[m.Selected]
+			switch option {
+			case "Toggle Visibility":
+				newVis, err := ToggleVisibility(m.StockList)
+				if err != nil {
+					m.Error = fmt.Sprintf("Failed to toggle visibility: %v", err)
+				} else {
+					// Update the model so View() shows the new visibility
+					m.StockList.Visibility = newVis
+					m.SuccessMessage = fmt.Sprintf("Visibility changed to %s", newVis)
+				}
+			}
 		}
 	}
 	return m, nil
@@ -95,6 +113,43 @@ func (m *DisplayStockListModel) View() string {
 			s += fmt.Sprintf("%s\n", styles.UnselectedStyle.Render("  "+option))
 		}
 	}
+	if m.SuccessMessage != "" {
+    	s += styles.SuccessStyle.Render(m.SuccessMessage) + "\n"
+	}
+	if m.Error != "" {
+		s += styles.ErrorStyle.Render(m.Error) + "\n"
+	}
 	s += styles.FooterStyle.Render("Enter to select • ↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
+}
+
+
+// a function to delete the current stocklist
+func DeleteStockList(stocklistID int) error {
+	db := database.New().GetDB()
+    _, err := db.Exec(`DELETE FROM stocklist WHERE stocklist_id=$1`, stocklistID)
+    return err
+}
+
+func ToggleVisibility(stockList StockList) (newVisibility string, err error) {
+	db := database.New().GetDB()
+	currentVis := stockList.Visibility
+	// new vis is opposite
+	if currentVis == "private" {
+        newVisibility = "public"
+    } else {
+        newVisibility = "private"
+    }
+
+	// update the database with new vis
+	_, err = db.Exec(`
+        UPDATE stocklist
+        SET visibility = $1
+        WHERE stocklist_id = $2
+    `, newVisibility, stockList.StockListID)
+    if err != nil {
+        return "", fmt.Errorf("failed to update visibility: %v", err)
+    }
+	return newVisibility, nil
+
 }

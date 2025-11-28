@@ -5,36 +5,38 @@ import (
 	"StockNet/internal/cli/tui/styles"
 	"StockNet/internal/auth"
 	"fmt"
+
 )
 
-// Model for the stock list page
-type EditStockListModel struct {
+// Model for the main review page
+type MainReviewModel struct {
 	Options		[]string
 	Selected  	int
 	BackPressed bool
 	Confirmed 	bool
 	User        *auth.User
 	StockList	StockList
+
 }
 
-// returns initial edit stock list model
-func NewEditStockListPage(stockList StockList, user *auth.User) *EditStockListModel {
-	return &EditStockListModel{
-		User: user,
-		Options: []string{
-			"Add/Update Stock",
-			"Delete Stock",
+// returns initial main reivew page model
+func NewMainReviewPage(stockList StockList, user *auth.User) *MainReviewModel {
+	return &MainReviewModel{
+		User: 		user,
+		StockList:	stockList,
+		Options: 	[]string{
+				"Write/Edit Review",
+				"View Reviews",
 		},
 		Selected: 	0,
-		StockList:	stockList,
 	}
 }
-// returns initial command for the edit stock list page to run (nothing)
-func (m *EditStockListModel) Init() tea.Cmd {
+// returns initial command for the main review page to run (nothing)
+func (m *MainReviewModel) Init() tea.Cmd {
 	return nil
 }
 // Handles incoming events and updates the model accordingly
-func (m *EditStockListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *MainReviewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -62,9 +64,9 @@ func (m *EditStockListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *EditStockListModel) View() string {
+func (m *MainReviewModel) View() string {
 	s := "\n"
-	s += styles.TitleStyle.Render("📝  Edit Stock List") + "\n\n"
+	s += styles.TitleStyle.Render("⭐  Reviews") + "\n\n"
 
 	// highlight the selected option with a →
 	for i, option := range m.Options {
@@ -74,11 +76,7 @@ func (m *EditStockListModel) View() string {
 			s += fmt.Sprintf("%s\n", styles.UnselectedStyle.Render("  "+option))
 		}
 	}
-	s += styles.FooterStyle.Render("Enter to select • ↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
+	s += styles.FooterStyle.Render("Enter to Select • ↑/↓ or k/j to navigate • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
 }
 
-// returns (logged in) user
-func (m *EditStockListModel) GetUser() *auth.User {
-	return m.User
-}

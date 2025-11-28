@@ -40,7 +40,7 @@ func NewViewSpecPortfolioPageWithUserID(userID int, portfolioID string) *ViewSpe
 		PortfolioID: portfolioID,
 		BackPressed:  false,
 		currentUserID: userID,
-		Options:      []string{"View Holdings", "View Transactions", "View Net Worth", "View Statistics", "Buy Stock", "Sell Stock", "Deposit Cash", "Withdraw Cash", "Back"},
+		Options:      []string{"View Holdings", "View Transactions", "View Net Worth", "View Statistics", "Buy Stock", "Sell Stock", "Deposit Cash", "Withdraw Cash"},
 		Selected:     0,
 	}
 }
