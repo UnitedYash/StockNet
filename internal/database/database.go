@@ -554,6 +554,46 @@ func (s *service) getLatestDateForPortfolio(ctx context.Context, portfolioID int
 	return *latestDate, nil
 }
 
+// getAlignedPricesQuery returns a SQL query template for calculating pairwise metrics
+// metric should be the aggregation function like "CORR(c1, c2) as correlation" or "COVAR_POP(c1, c2) as covariance"
+func getAlignedPricesQuery(metric string, dateRange string) string {
+	return `
+	WITH prices1 AS (
+	  SELECT timestamp, close FROM Stocks
+	  WHERE symbol = $1 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
+	),
+	prices2 AS (
+	  SELECT timestamp, close FROM Stocks
+	  WHERE symbol = $2 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
+	),
+	aligned AS (
+	  SELECT p1.close as c1, p2.close as c2
+	  FROM prices1 p1
+	  INNER JOIN prices2 p2 ON p1.timestamp = p2.timestamp
+	)
+	SELECT ` + metric + `
+	FROM aligned`
+}
+
+// calculatePairwiseMatrix calculates a pairwise matrix between all pairs of symbols
+// queryBuilder is a function that returns the SQL query for calculating a metric between two symbols
+func (s *service) calculatePairwiseMatrix(ctx context.Context, symbols []string, latestDate time.Time, queryBuilder func(s1, s2 string) string) (map[string]map[string]float64, error) {
+	matrix := make(map[string]map[string]float64)
+	for _, s1 := range symbols {
+		matrix[s1] = make(map[string]float64)
+		for _, s2 := range symbols {
+			query := queryBuilder(s1, s2)
+			var value float64
+			err := s.db.QueryRowContext(ctx, query, s1, s2, latestDate).Scan(&value)
+			if err != nil && err != sql.ErrNoRows {
+				value = 0
+			}
+			matrix[s1][s2] = value
+		}
+	}
+	return matrix, nil
+}
+
 // GetCOV calculates coefficient of variation for a stock over a time interval
 func (s *service) GetCOV(ctx context.Context, portfolioID int, symbol, timeInterval string) (float64, error) {
 	// Get the latest date from portfolio data
@@ -686,46 +726,24 @@ func (s *service) GetCorrelationMatrix(ctx context.Context, portfolioID int, tim
 		return make(map[string]map[string]float64), nil
 	}
 
-	// Calculate pairwise correlations
-	matrix := make(map[string]map[string]float64)
-	for _, s1 := range symbols {
-		matrix[s1] = make(map[string]float64)
-		for _, s2 := range symbols {
-			if s1 == s2 {
-				matrix[s1][s2] = 1.0 // Correlation with self is always 1
-				continue
-			}
+	// Calculate pairwise correlations using helper
+	queryBuilder := func(s1, s2 string) string {
+		metric := `CASE
+		  WHEN STDDEV_POP(c1) = 0 OR STDDEV_POP(c2) = 0 THEN 0
+		  WHEN COUNT(*) < 2 THEN 0
+		  ELSE COVAR_POP(c1, c2) / (STDDEV_POP(c1) * STDDEV_POP(c2))
+		END as correlation`
+		return getAlignedPricesQuery(metric, dateRange)
+	}
 
-			// Calculate correlation between s1 and s2
-			corrQuery := `
-			WITH prices1 AS (
-			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $1 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			),
-			prices2 AS (
-			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $2 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			),
-			aligned AS (
-			  SELECT p1.close as c1, p2.close as c2
-			  FROM prices1 p1
-			  INNER JOIN prices2 p2 ON p1.timestamp = p2.timestamp
-			)
-			SELECT CASE
-			  WHEN STDDEV_POP(c1) = 0 OR STDDEV_POP(c2) = 0 THEN 0
-			  WHEN COUNT(*) < 2 THEN 0
-			  ELSE COVAR_POP(c1, c2) / (STDDEV_POP(c1) * STDDEV_POP(c2))
-			END as correlation
-			FROM aligned`
+	matrix, err := s.calculatePairwiseMatrix(ctx, symbols, latestDate, queryBuilder)
+	if err != nil {
+		return nil, err
+	}
 
-			var corr float64
-			err := s.db.QueryRowContext(ctx, corrQuery, s1, s2, latestDate).Scan(&corr)
-			if err != nil && err != sql.ErrNoRows {
-				corr = 0 // Default to 0 if calculation fails
-			}
-
-			matrix[s1][s2] = corr
-		}
+	// Set diagonal to 1 (correlation with self is always 1)
+	for _, symbol := range symbols {
+		matrix[symbol][symbol] = 1.0
 	}
 
 	return matrix, nil
@@ -767,40 +785,13 @@ func (s *service) GetCovarianceMatrix(ctx context.Context, portfolioID int, time
 		return make(map[string]map[string]float64), nil
 	}
 
-	// Calculate pairwise covariances
-	matrix := make(map[string]map[string]float64)
-	for _, s1 := range symbols {
-		matrix[s1] = make(map[string]float64)
-		for _, s2 := range symbols {
-			// Calculate covariance between s1 and s2
-			covQuery := `
-			WITH prices1 AS (
-			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $1 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			),
-			prices2 AS (
-			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $2 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			),
-			aligned AS (
-			  SELECT p1.close as c1, p2.close as c2
-			  FROM prices1 p1
-			  INNER JOIN prices2 p2 ON p1.timestamp = p2.timestamp
-			)
-			SELECT COVAR_POP(c1, c2) as covariance
-			FROM aligned`
-
-			var cov float64
-			err := s.db.QueryRowContext(ctx, covQuery, s1, s2, latestDate).Scan(&cov)
-			if err != nil && err != sql.ErrNoRows {
-				cov = 0 // Default to 0 if calculation fails
-			}
-
-			matrix[s1][s2] = cov
-		}
+	// Calculate pairwise covariances using helper
+	queryBuilder := func(s1, s2 string) string {
+		metric := "COVAR_POP(c1, c2) as covariance"
+		return getAlignedPricesQuery(metric, dateRange)
 	}
 
-	return matrix, nil
+	return s.calculatePairwiseMatrix(ctx, symbols, latestDate, queryBuilder)
 }
 
 // GetPricePredictions uses linear regression to predict future prices
@@ -1077,39 +1068,13 @@ func (s *service) GetCorrelationMatrixForStockList(ctx context.Context, stockLis
 		return make(map[string]map[string]float64), nil
 	}
 
-	// Calculate pairwise correlations using selected time interval from latest date
-	matrix := make(map[string]map[string]float64)
-	for _, s1 := range symbols {
-		matrix[s1] = make(map[string]float64)
-		for _, s2 := range symbols {
-			// Calculate correlation between s1 and s2
-			corrQuery := `
-			WITH prices1 AS (
-			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $1 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			),
-			prices2 AS (
-			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $2 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			),
-			aligned AS (
-			  SELECT p1.close as c1, p2.close as c2
-			  FROM prices1 p1
-			  INNER JOIN prices2 p2 ON p1.timestamp = p2.timestamp
-			)
-			SELECT CORR(c1, c2) as correlation
-			FROM aligned`
-
-			var corr float64
-			err := s.db.QueryRowContext(ctx, corrQuery, s1, s2, latestDate).Scan(&corr)
-			if err != nil && err != sql.ErrNoRows {
-				corr = 0
-			}
-			matrix[s1][s2] = corr
-		}
+	// Calculate pairwise correlations using helper
+	queryBuilder := func(s1, s2 string) string {
+		metric := "CORR(c1, c2) as correlation"
+		return getAlignedPricesQuery(metric, dateRange)
 	}
 
-	return matrix, nil
+	return s.calculatePairwiseMatrix(ctx, symbols, *latestDate, queryBuilder)
 }
 
 // GetCovarianceMatrixForStockList calculates covariance between all pairs of stocks in a stock list
@@ -1153,37 +1118,11 @@ func (s *service) GetCovarianceMatrixForStockList(ctx context.Context, stockList
 		return make(map[string]map[string]float64), nil
 	}
 
-	// Calculate pairwise covariances using selected time interval from latest date
-	matrix := make(map[string]map[string]float64)
-	for _, s1 := range symbols {
-		matrix[s1] = make(map[string]float64)
-		for _, s2 := range symbols {
-			// Calculate covariance between s1 and s2
-			covQuery := `
-			WITH prices1 AS (
-			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $1 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			),
-			prices2 AS (
-			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $2 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
-			),
-			aligned AS (
-			  SELECT p1.close as c1, p2.close as c2
-			  FROM prices1 p1
-			  INNER JOIN prices2 p2 ON p1.timestamp = p2.timestamp
-			)
-			SELECT COVAR_POP(c1, c2) as covariance
-			FROM aligned`
-
-			var cov float64
-			err := s.db.QueryRowContext(ctx, covQuery, s1, s2, latestDate).Scan(&cov)
-			if err != nil && err != sql.ErrNoRows {
-				cov = 0
-			}
-			matrix[s1][s2] = cov
-		}
+	// Calculate pairwise covariances using helper
+	queryBuilder := func(s1, s2 string) string {
+		metric := "COVAR_POP(c1, c2) as covariance"
+		return getAlignedPricesQuery(metric, dateRange)
 	}
 
-	return matrix, nil
+	return s.calculatePairwiseMatrix(ctx, symbols, *latestDate, queryBuilder)
 }
