@@ -48,7 +48,7 @@ type Service interface {
 
 	// Cache management methods
 	GetStatisticCache(ctx context.Context, portfolioID int, statsType, interval, symbol string) (interface{}, error)
-	SetStatisticCache(ctx context.Context, portfolioID int, statsType, interval, symbol, metricSymbol string, value float64, matrixJSON *string, latestDate time.Time) error
+	SetStatisticCache(ctx context.Context, portfolioID int, statsType, interval, symbol string, value float64, matrixJSON *string, latestDate time.Time) error
 	InvalidatePortfolioCache(ctx context.Context, portfolioID int) error
 	InvalidatePortfolioStockCache(ctx context.Context, symbol string) error
 
@@ -437,7 +437,7 @@ func (s *service) GetStatisticCache(ctx context.Context, portfolioID int, statsT
 
 	err := s.db.QueryRowContext(ctx,
 		`SELECT value, matrix_json FROM portfolio_statistics_cache
-		 WHERE portfolio_id = $1 AND statistic_type = $2 AND time_interval = $3 AND symbol = $4 AND metric_symbol IS NULL
+		 WHERE portfolio_id = $1 AND statistic_type = $2 AND time_interval = $3 AND symbol = $4
 		 ORDER BY computed_at DESC
 		 LIMIT 1`,
 		portfolioID, statsType, interval, symbol,
@@ -462,20 +462,14 @@ func (s *service) GetStatisticCache(ctx context.Context, portfolioID int, statsT
 }
 
 // SetStatisticCache stores a computed statistic in the cache
-func (s *service) SetStatisticCache(ctx context.Context, portfolioID int, statsType, interval, symbol, metricSymbol string, value float64, matrixJSON *string, latestDate time.Time) error {
-	// Convert empty metricSymbol to NULL for proper cache lookup
-	var metricSymbolPtr *string
-	if metricSymbol != "" {
-		metricSymbolPtr = &metricSymbol
-	}
-
+func (s *service) SetStatisticCache(ctx context.Context, portfolioID int, statsType, interval, symbol string, value float64, matrixJSON *string, latestDate time.Time) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO portfolio_statistics_cache
-		 (portfolio_id, statistic_type, time_interval, symbol, metric_symbol, value, matrix_json, latest_data_date)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		 ON CONFLICT (portfolio_id, statistic_type, time_interval, symbol, metric_symbol)
-		 DO UPDATE SET value = $6, matrix_json = $7, computed_at = CURRENT_TIMESTAMP, latest_data_date = $8`,
-		portfolioID, statsType, interval, symbol, metricSymbolPtr, value, matrixJSON, latestDate,
+		 (portfolio_id, statistic_type, time_interval, symbol, value, matrix_json, latest_data_date)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 ON CONFLICT (portfolio_id, statistic_type, time_interval, symbol)
+		 DO UPDATE SET value = $5, matrix_json = $6, computed_at = CURRENT_TIMESTAMP, latest_data_date = $7`,
+		portfolioID, statsType, interval, symbol, value, matrixJSON, latestDate,
 	)
 
 	if err != nil {
@@ -632,7 +626,7 @@ func (s *service) GetCOV(ctx context.Context, portfolioID int, symbol, timeInter
 	}
 
 	// Cache the result
-	s.SetStatisticCache(ctx, portfolioID, "cov", timeInterval, symbol, "", cov, nil, latestDate)
+	s.SetStatisticCache(ctx, portfolioID, "cov", timeInterval, symbol, cov, nil, latestDate)
 
 	return cov, nil
 }
@@ -697,7 +691,7 @@ func (s *service) GetBeta(ctx context.Context, portfolioID int, symbol, timeInte
 	}
 
 	// Cache the result
-	s.SetStatisticCache(ctx, portfolioID, "beta", timeInterval, symbol, "", beta, nil, latestDate)
+	s.SetStatisticCache(ctx, portfolioID, "beta", timeInterval, symbol, beta, nil, latestDate)
 
 	return beta, nil
 }
@@ -773,7 +767,7 @@ func (s *service) GetCorrelationMatrix(ctx context.Context, portfolioID int, tim
 	// Convert matrix to JSON for caching
 	matrixJSON, _ := json.Marshal(matrix)
 	matrixJSONStr := string(matrixJSON)
-	s.SetStatisticCache(ctx, portfolioID, "correlation_matrix", timeInterval, "", "", 0, &matrixJSONStr, latestDate)
+	s.SetStatisticCache(ctx, portfolioID, "correlation_matrix", timeInterval, "", 0, &matrixJSONStr, latestDate)
 
 	return matrix, nil
 }
@@ -840,7 +834,7 @@ func (s *service) GetCovarianceMatrix(ctx context.Context, portfolioID int, time
 	// Convert matrix to JSON for caching
 	matrixJSON, _ := json.Marshal(matrix)
 	matrixJSONStr := string(matrixJSON)
-	s.SetStatisticCache(ctx, portfolioID, "covariance_matrix", timeInterval, "", "", 0, &matrixJSONStr, latestDate)
+	s.SetStatisticCache(ctx, portfolioID, "covariance_matrix", timeInterval, "", 0, &matrixJSONStr, latestDate)
 
 	return matrix, nil
 }
