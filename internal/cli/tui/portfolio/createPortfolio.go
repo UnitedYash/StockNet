@@ -106,14 +106,6 @@ func (m *CreatePortfolioModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.step == 1 && m.cursor < len(m.cashInput) {
 				m.cursor++
 			}
-		case "home":
-			m.cursor = 0
-		case "end":
-			if m.step == 0 {
-				m.cursor = len(m.nameInput)
-			} else if m.step == 1 {
-				m.cursor = len(m.cashInput)
-			}
 		default:
 			// Add characters to current input
 			if len(msg.String()) == 1 {

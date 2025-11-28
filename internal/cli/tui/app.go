@@ -70,6 +70,8 @@ const (
 	ViewPublicListsState			// 41
 	ShareStockListState				// 42
 	ViewSharedListsState			// 43
+	MainReviewState					// 44
+	WriteReviewState				// 45
 )
 
 // AppModel is the root model for the entire app
@@ -120,6 +122,8 @@ type AppModel struct {
 	viewPublicLists			*stocklist.ViewPublicListsModel	
 	shareStockList			*stocklist.ShareStockListModel
 	viewSharedLists			*stocklist.ViewSharedListsModel
+	mainReview   			*stocklist.MainReviewModel
+	writeReview				*stocklist.WriteReviewModel
 }
 
 // NewAppModel creates a new app model
@@ -170,6 +174,8 @@ func NewAppModel() *AppModel {
 		viewPublicLists:		stocklist.NewViewPublicListsPage(nil),
 		shareStockList:			stocklist.NewShareStockListPage(DefaultStockList, nil),
 		viewSharedLists:		stocklist.NewViewSharedListsPage(nil),
+		mainReview:				stocklist.NewMainReviewPage(DefaultStockList, nil),
+		writeReview:			stocklist.NewWriteReviewPage(DefaultStockList, nil),
 	}
 }
 // returns intial command for the application to run
@@ -559,13 +565,45 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.displayStockList.SuccessMessage = ""
 						m.displayStockList.DeleteList  = false
 					}
-				
 					return m, cmd
 				case "Share":
 					m.state = ShareStockListState
 					m.shareStockList = stocklist.NewShareStockListPage(m.displayStockList.StockList, m.stockList.GetUser())
+				case "Reviews":
+					m.state = MainReviewState
+					m.mainReview = stocklist.NewMainReviewPage(m.displayStockList.StockList, m.stockList.GetUser())
 				}
 			}
+		}
+		return m, cmd
+	case MainReviewState:
+		mainReview, cmd := m.mainReview.Update(msg)
+		m.mainReview = mainReview.(*stocklist.MainReviewModel)
+		// Go back to display stock list page from main review page
+		if m.mainReview.BackPressed {
+			m.mainReview.BackPressed = false
+			m.state = DisplayStockListState
+		}
+		if m.mainReview.Selected >= 0 && m.mainReview.Selected < len(m.mainReview.Options) {
+			option := m.mainReview.Options[m.mainReview.Selected]
+			if m.mainReview.Confirmed {
+				m.mainReview.Confirmed = false
+				switch option {
+				case "Write/Edit Review":
+					m.state = WriteReviewState
+					m.writeReview = stocklist.NewWriteReviewPage(m.mainReview.StockList, m.mainReview.User)
+				case "View Reviews":
+				}
+			}
+		}
+		return m, cmd
+	case WriteReviewState:
+		writeReview, cmd := m.writeReview.Update(msg)
+		m.writeReview = writeReview.(*stocklist.WriteReviewModel)
+		// Go back to main review page from write reviews
+		if m.writeReview.BackPressed {
+			m.writeReview.BackPressed = false
+			m.state = MainReviewState
 		}
 		return m, cmd
 
@@ -1331,6 +1369,10 @@ func (m *AppModel) View() string {
 		return m.shareStockList.View()
 	case ViewSharedListsState:
 		return m.viewSharedLists.View()
+	case MainReviewState:
+		return m.mainReview.View()
+	case WriteReviewState:
+		return m.writeReview.View()
 	}
 	return ""
 }
