@@ -31,9 +31,9 @@ func NewDisplayStockListPage(stockList StockList, user *auth.User, OwnerID uint3
 	}
 	// if the current user is the owner of the stocklist, give edit and delete options
 	if user != nil && user.UserID == OwnerID {
-		model.Options = []string{"View Stocks", "Edit List", "View Statistics", "Reviews", "Share", "Delete List"}
+		model.Options = []string{"View Stocks", "Edit List", "Reviews", "Share", "Delete List"}
 	} else {
-		model.Options = []string{"View Stocks", "View Statistics", "Reviews", "Share"}
+		model.Options = []string{"View Stocks", "Reviews", "Share"}
 	}
 
 	return model

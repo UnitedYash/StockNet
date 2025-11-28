@@ -893,12 +893,14 @@ func (s *service) GetPricePredictions(ctx context.Context, symbol string, daysAh
 
 // GetCOVForStockList calculates COV (coefficient of variation) for each stock in a stock list
 func (s *service) GetCOVForStockList(ctx context.Context, stockListID int, timeInterval string) (map[string]float64, error) {
-	// Get the latest date available for stocks in this stock list
+	// Get the latest date where all stocks in the stock list have data
 	var latestDate *time.Time
 	dateQuery := `
-	SELECT MAX(s.timestamp) FROM Stocks s
-	INNER JOIN hasstockfromstocklist h ON s.symbol = h.symbol
-	WHERE h.stocklist_id = $1`
+	SELECT MIN(max_date) FROM (
+		SELECT MAX(s.timestamp) as max_date FROM Stocks s
+		WHERE s.symbol IN (SELECT symbol FROM hasstockfromstocklist WHERE stocklist_id = $1)
+		GROUP BY s.symbol
+	) as stock_dates`
 	err := s.db.QueryRowContext(ctx, dateQuery, stockListID).Scan(&latestDate)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("failed to get latest date: %w", err)
@@ -930,7 +932,7 @@ func (s *service) GetCOVForStockList(ctx context.Context, stockListID int, timeI
 		return make(map[string]float64), nil
 	}
 
-	// Calculate COV for each symbol
+	// Calculate COV for each symbol using selected time interval from latest date
 	covResults := make(map[string]float64)
 	for _, symbol := range symbols {
 		covQuery := `
@@ -955,12 +957,14 @@ func (s *service) GetCOVForStockList(ctx context.Context, stockListID int, timeI
 
 // GetBetaForStockList calculates Beta for each stock in a stock list (correlation with market)
 func (s *service) GetBetaForStockList(ctx context.Context, stockListID int, timeInterval string) (map[string]float64, error) {
-	// Get the latest date available for stocks in this stock list
+	// Get the latest date where all stocks in the stock list have data
 	var latestDate *time.Time
 	dateQuery := `
-	SELECT MAX(s.timestamp) FROM Stocks s
-	INNER JOIN hasstockfromstocklist h ON s.symbol = h.symbol
-	WHERE h.stocklist_id = $1`
+	SELECT MIN(max_date) FROM (
+		SELECT MAX(s.timestamp) as max_date FROM Stocks s
+		WHERE s.symbol IN (SELECT symbol FROM hasstockfromstocklist WHERE stocklist_id = $1)
+		GROUP BY s.symbol
+	) as stock_dates`
 	err := s.db.QueryRowContext(ctx, dateQuery, stockListID).Scan(&latestDate)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("failed to get latest date: %w", err)
@@ -993,47 +997,40 @@ func (s *service) GetBetaForStockList(ctx context.Context, stockListID int, time
 	}
 
 	betaResults := make(map[string]float64)
-	for i, s1 := range symbols {
-		// Beta = correlation with all other stocks in the list (simplified market proxy)
-		var totalBeta float64
-		betaCount := 0
+	for _, s1 := range symbols {
+		// Beta = Cov(stock, market) / Var(market)
+		// Market is the average of all stocks in the Stocks table, only for dates within the selected time interval
+		betaQuery := `
+		WITH target_prices AS (
+		  SELECT timestamp, close FROM Stocks
+		  WHERE symbol = $1 AND timestamp >= $2::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $2::timestamp
+		),
+		market_prices AS (
+		  SELECT timestamp, AVG(close) as market_close
+		  FROM Stocks
+		  WHERE timestamp IN (SELECT timestamp FROM target_prices)
+		  GROUP BY timestamp
+		),
+		aligned_data AS (
+		  SELECT
+		    t.close as stock_close,
+		    m.market_close
+		  FROM target_prices t
+		  INNER JOIN market_prices m ON t.timestamp = m.timestamp
+		)
+		SELECT CASE
+		  WHEN COUNT(*) = 0 THEN 0
+		  WHEN VARIANCE(market_close) = 0 THEN 0
+		  ELSE COVAR_POP(stock_close, market_close) / VARIANCE(market_close)
+		END as beta
+		FROM aligned_data`
 
-		for j, s2 := range symbols {
-			if i == j {
-				continue // Skip correlation with itself
-			}
-
-			betaQuery := `
-			WITH prices1 AS (
-			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $1 AND timestamp >= $2::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $2::timestamp
-			),
-			prices2 AS (
-			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $3 AND timestamp >= $2::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $2::timestamp
-			),
-			aligned AS (
-			  SELECT p1.close as c1, p2.close as c2
-			  FROM prices1 p1
-			  INNER JOIN prices2 p2 ON p1.timestamp = p2.timestamp
-			)
-			SELECT COVAR_POP(c1, c2) / STDDEV_POP(c1) as beta
-			FROM aligned`
-
-			var beta float64
-			err := s.db.QueryRowContext(ctx, betaQuery, s1, latestDate, s2).Scan(&beta)
-			if err != nil && err != sql.ErrNoRows {
-				beta = 0
-			}
-			totalBeta += beta
-			betaCount++
+		var beta float64
+		err := s.db.QueryRowContext(ctx, betaQuery, s1, latestDate).Scan(&beta)
+		if err != nil && err != sql.ErrNoRows {
+			beta = 0
 		}
-
-		if betaCount > 0 {
-			betaResults[s1] = totalBeta / float64(betaCount)
-		} else {
-			betaResults[s1] = 0
-		}
+		betaResults[s1] = beta
 	}
 
 	return betaResults, nil
@@ -1041,12 +1038,14 @@ func (s *service) GetBetaForStockList(ctx context.Context, stockListID int, time
 
 // GetCorrelationMatrixForStockList calculates correlation between all pairs of stocks in a stock list
 func (s *service) GetCorrelationMatrixForStockList(ctx context.Context, stockListID int, timeInterval string) (map[string]map[string]float64, error) {
-	// Get the latest date available for stocks in this stock list
+	// Get the latest date where all stocks in the stock list have data
 	var latestDate *time.Time
 	dateQuery := `
-	SELECT MAX(s.timestamp) FROM Stocks s
-	INNER JOIN hasstockfromstocklist h ON s.symbol = h.symbol
-	WHERE h.stocklist_id = $1`
+	SELECT MIN(max_date) FROM (
+		SELECT MAX(s.timestamp) as max_date FROM Stocks s
+		WHERE s.symbol IN (SELECT symbol FROM hasstockfromstocklist WHERE stocklist_id = $1)
+		GROUP BY s.symbol
+	) as stock_dates`
 	err := s.db.QueryRowContext(ctx, dateQuery, stockListID).Scan(&latestDate)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("failed to get latest date: %w", err)
@@ -1078,7 +1077,7 @@ func (s *service) GetCorrelationMatrixForStockList(ctx context.Context, stockLis
 		return make(map[string]map[string]float64), nil
 	}
 
-	// Calculate pairwise correlations
+	// Calculate pairwise correlations using selected time interval from latest date
 	matrix := make(map[string]map[string]float64)
 	for _, s1 := range symbols {
 		matrix[s1] = make(map[string]float64)
@@ -1087,11 +1086,11 @@ func (s *service) GetCorrelationMatrixForStockList(ctx context.Context, stockLis
 			corrQuery := `
 			WITH prices1 AS (
 			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $1 AND timestamp >= $2::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $2::timestamp
+			  WHERE symbol = $1 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
 			),
 			prices2 AS (
 			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $3 AND timestamp >= $2::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $2::timestamp
+			  WHERE symbol = $2 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
 			),
 			aligned AS (
 			  SELECT p1.close as c1, p2.close as c2
@@ -1102,7 +1101,7 @@ func (s *service) GetCorrelationMatrixForStockList(ctx context.Context, stockLis
 			FROM aligned`
 
 			var corr float64
-			err := s.db.QueryRowContext(ctx, corrQuery, s1, latestDate, s2).Scan(&corr)
+			err := s.db.QueryRowContext(ctx, corrQuery, s1, s2, latestDate).Scan(&corr)
 			if err != nil && err != sql.ErrNoRows {
 				corr = 0
 			}
@@ -1115,12 +1114,14 @@ func (s *service) GetCorrelationMatrixForStockList(ctx context.Context, stockLis
 
 // GetCovarianceMatrixForStockList calculates covariance between all pairs of stocks in a stock list
 func (s *service) GetCovarianceMatrixForStockList(ctx context.Context, stockListID int, timeInterval string) (map[string]map[string]float64, error) {
-	// Get the latest date available for stocks in this stock list
+	// Get the latest date where all stocks in the stock list have data
 	var latestDate *time.Time
 	dateQuery := `
-	SELECT MAX(s.timestamp) FROM Stocks s
-	INNER JOIN hasstockfromstocklist h ON s.symbol = h.symbol
-	WHERE h.stocklist_id = $1`
+	SELECT MIN(max_date) FROM (
+		SELECT MAX(s.timestamp) as max_date FROM Stocks s
+		WHERE s.symbol IN (SELECT symbol FROM hasstockfromstocklist WHERE stocklist_id = $1)
+		GROUP BY s.symbol
+	) as stock_dates`
 	err := s.db.QueryRowContext(ctx, dateQuery, stockListID).Scan(&latestDate)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("failed to get latest date: %w", err)
@@ -1152,7 +1153,7 @@ func (s *service) GetCovarianceMatrixForStockList(ctx context.Context, stockList
 		return make(map[string]map[string]float64), nil
 	}
 
-	// Calculate pairwise covariances
+	// Calculate pairwise covariances using selected time interval from latest date
 	matrix := make(map[string]map[string]float64)
 	for _, s1 := range symbols {
 		matrix[s1] = make(map[string]float64)
@@ -1161,11 +1162,11 @@ func (s *service) GetCovarianceMatrixForStockList(ctx context.Context, stockList
 			covQuery := `
 			WITH prices1 AS (
 			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $1 AND timestamp >= $2::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $2::timestamp
+			  WHERE symbol = $1 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
 			),
 			prices2 AS (
 			  SELECT timestamp, close FROM Stocks
-			  WHERE symbol = $3 AND timestamp >= $2::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $2::timestamp
+			  WHERE symbol = $2 AND timestamp >= $3::timestamp - INTERVAL '` + dateRange + `' AND timestamp <= $3::timestamp
 			),
 			aligned AS (
 			  SELECT p1.close as c1, p2.close as c2
@@ -1176,7 +1177,7 @@ func (s *service) GetCovarianceMatrixForStockList(ctx context.Context, stockList
 			FROM aligned`
 
 			var cov float64
-			err := s.db.QueryRowContext(ctx, covQuery, s1, latestDate, s2).Scan(&cov)
+			err := s.db.QueryRowContext(ctx, covQuery, s1, s2, latestDate).Scan(&cov)
 			if err != nil && err != sql.ErrNoRows {
 				cov = 0
 			}

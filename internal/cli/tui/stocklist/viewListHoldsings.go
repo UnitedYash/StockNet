@@ -88,16 +88,23 @@ func (m *ViewListHoldingsModel) View() string {
 		s += "No Holdings in this Stock List! Try adding some."
 	} else {
 
-		s += styles.HeaderStyle.Render("Symbol    Share") + "\n"
-		s += "────────────────────────────────────────────────────────\n"
+		s += styles.HeaderStyle.Render("Symbol    Shares        Price         Net Worth") + "\n"
+		s += "─────────────────────────────────────────────────────────────────────────\n"
+
+		var totalNetWorth float64
 		for i, holding := range m.StockHoldings {
-			line := fmt.Sprintf("%-5s %-30f", holding.Symbol, holding.Shares)
+			netWorth := holding.Shares * holding.CurrentPrice
+			totalNetWorth += netWorth
+			line := fmt.Sprintf("%-8s %-12.2f %-12.2f %-12.2f", holding.Symbol, holding.Shares, holding.CurrentPrice, netWorth)
 			if i == m.Selected {
-			s += fmt.Sprintf("%s\n", styles.SelectedStyle.Render("→ "+ line))
+				s += fmt.Sprintf("%s\n", styles.SelectedStyle.Render("→ "+line))
 			} else {
-				s += fmt.Sprintf("%s\n", styles.UnselectedStyle.Render("  "+ line))
+				s += fmt.Sprintf("%s\n", styles.UnselectedStyle.Render("  "+line))
 			}
 		}
+
+		s += "─────────────────────────────────────────────────────────────────────────\n"
+		s += fmt.Sprintf("%-8s %-12s %-12s %-12.2f\n", "", "", "Total:", totalNetWorth)
 	}
 	s += styles.FooterStyle.Render("↑/↓ or k/j to navigate • 's' for statistics • 'Ctrl + b' or 'Esc' to go back") + "\n\n"
 	return s
