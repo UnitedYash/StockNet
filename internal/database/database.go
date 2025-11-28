@@ -73,38 +73,6 @@ type Service interface {
 	GetCorrelationMatrixForStockList(ctx context.Context, stockListID int, timeInterval string) (map[string]map[string]float64, error)
 	// Returns covariance matrix for all stocks in a stock list over a time interval
 	GetCovarianceMatrixForStockList(ctx context.Context, stockListID int, timeInterval string) (map[string]map[string]float64, error)
-
-	// Stock list management methods
-	GetUserStockLists(ctx context.Context, userID int) ([]StockListInfo, error)
-	GetPublicStockLists(ctx context.Context) ([]StockListInfo, error)
-	GetSharedStockLists(ctx context.Context, email string) ([]StockListInfo, error)
-	CreateStockList(ctx context.Context, userID int, name string, visibility string) (int, error)
-	DeleteStockList(ctx context.Context, stockListID int) error
-	UpdateStockListVisibility(ctx context.Context, stockListID int, visibility string) error
-	AddStockToStockList(ctx context.Context, stockListID int, symbol string, shares int) error
-	DeleteStockFromStockList(ctx context.Context, stockListID int, symbol string) error
-	GetStockListHoldings(ctx context.Context, stockListID int) ([]StockListHolding, error)
-	GetStockListSymbols(ctx context.Context, stockListID int) ([]string, error)
-	GetReview(ctx context.Context, userID int, stockListID int) (string, error)
-	UpsertReview(ctx context.Context, userID int, stockListID int, text string) error
-	ShareStockList(ctx context.Context, stockListID int, email string) error
-	UnshareStockList(ctx context.Context, stockListID int, email string) error
-	CheckEmailExists(ctx context.Context, email string) (bool, error)
-
-	// Stock management methods
-	GetCurrentPrices(ctx context.Context) ([]StockPrice, error)
-	GetStockHistoricalData(ctx context.Context, symbol string, startDate string) ([]StockHistoricalData, error)
-	GetLatestDateForStock(ctx context.Context, symbol string) (string, error)
-	GetStocksFromPortfolio(ctx context.Context, portfolioID int) ([]Holding, error)
-	GetAllStockSymbols(ctx context.Context) ([]string, error)
-
-	// Portfolio management methods
-	GetPortfolio(ctx context.Context, portfolioID int) (*PortfolioInfo, error)
-	GetUserPortfolios(ctx context.Context, userID int) ([]PortfolioInfo, error)
-	CreatePortfolio(ctx context.Context, userID int, name string, initialCash float64) (int, error)
-	GetPortfolioNetWorth(ctx context.Context, portfolioID int) (*PortfolioSummary, error)
-	GetPortfolioTransactions(ctx context.Context, portfolioID int) ([]TransactionRecord, error)
-	GetPortfolioHoldings(ctx context.Context, portfolioID int) ([]Holding, error)
 }
 
 // PricePrediction represents a predicted price point
