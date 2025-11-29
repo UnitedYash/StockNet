@@ -55,14 +55,17 @@ func (m *AddStockToListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case stockAddedCreatedMsg:
 		if msg.updated{
 			m.SuccessMessage = fmt.Sprintf("Stock '%s' updated successfully to %s (%d)", msg.symbol, m.StockList.Name, m.StockList.StockListID)
+			m.Error = ""
 		} else {
 			m.SuccessMessage = fmt.Sprintf("Stock '%s' added successfully to %s (%d)", msg.symbol, m.StockList.Name, m.StockList.StockListID)
+			m.Error = ""
 		}
 	case stockAddedErrorMsg:
 		m.Error = fmt.Sprintf("Error adding Stock %s: %v. Try Again", m.SymbolName, msg.err)
 		m.Step = 0
 		m.SymbolName = ""
 		m.Shares = ""
+		m.SuccessMessage = ""
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+b", "esc":

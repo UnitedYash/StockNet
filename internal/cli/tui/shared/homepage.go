@@ -22,7 +22,7 @@ func NewHomePage(user *auth.User) *HomePageModel {
 		User: user,
 		Options: []string{
 			"My Portfolios",
-			"My Stock Lists",
+			"Stock Lists",
 			"Stock Data & Analysis",
 			"Friends & Social",
 		},

@@ -275,7 +275,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "My Portfolios":
 					m.state = PortfolioState
 					m.portfolio = portfolio.NewPortfolioPage()
-				case "My Stock Lists":
+				case "Stock Lists":
 					m.state = StockListState
 					m.stockList = stocklist.NewStockListPage(m.homepage.GetUser())
 				case "Stock Data & Analysis":
